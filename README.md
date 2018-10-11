@@ -1,13 +1,12 @@
 # Pheasant-Project
 
 
-
-#Step1: Look at fastq data (in terminal)
+# Step1: Look at fastq data (in terminal)
 
 Last login: Thu Oct 11 12:38:35 on ttys000
 
 #So now when you open terminal, navigate to that folder using this command: cd /User/projects/PheasantProject
-eduroam-140-210:~ aminachabach$ cd /Users/aminachabach/Project/Fastq
+```eduroam-140-210:~ aminachabach$ cd /Users/aminachabach/Project/Fastq```
 
 #where /User/projects/PheasantProject is whatever your file path is. 
 You can check where your terminal is with the following command: pwd
@@ -74,4 +73,45 @@ eduroam-140-210:WPAallMerged_outfiles aminachabach$ less WPAallMerged.loci
 
 
 
+#vcf Installation
+
+eduroam-140-210:vcftools_0.1.13 aminachabach$ cd/Users/aminachabach/Project/vcftools_0.1.13
+-bash: cd/Users/aminachabach/Project/vcftools_0.1.13: No such file or directory
+
+eduroam-140-210:vcftools_0.1.13 aminachabach$ pwd
+/Users/aminachabach/Project/vcftools_0.1.13
+
+eduroam-140-210:vcftools_0.1.13 aminachabach$ ls
+Makefile	README.md	README.txt	cpp		examples	perl
+
+eduroam-140-210:vcftools_0.1.13 aminachabach$ less Makefile
+
+#Installation
+eduroam-140-210:vcftools_0.1.13 aminachabach$ make
+g++ -c -O2 -D_FILE_OFFSET_BITS=64  vcftools.cpp -o vcftools.o
+
+
+#To find path if using the same
+eduroam-140-210:vcftools_0.1.13 aminachabach$ echo $PATH
+/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin
+
+#eduroam-140-210:vcftools_0.1.13 aminachabach$ ls ~/
+Applications	Assignmnet	Desktop		Downloads	Movies		Pictures	Project
+Assignment	BirthdayStick	Documents	Library		Music		Practical 2	Public
+
+
+#Bin vcf tools (= path/bin/vcftools)
+eduroam-140-210:vcftools_0.1.13 aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools 
+VCFtools (v0.1.13)
+© Adam Auton and Anthony Marcketta 2009
+
+Process Variant Call Format files
+
+For a list of options, please go to:
+	https://vcftools.github.io/examples.html
+
+Questions, comments, and suggestions should be emailed to:
+	vcftools-help@lists.sourceforge.net
+
+eduroam-140-210:vcftools_0.1.13 aminachabach$ 
 
