@@ -192,12 +192,145 @@ tail out.imiss
 
 # What we're interested in is the F_MISS column. This tells us the proportion of missing data for that individual.You can just copy and paste this next bit in your command line. This is a bit of linux code to draw of histogram of the F_MISS column: 
 
+## Install gnuplot on Mac OSX
 ````
-???
+ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)" < /dev/null 2> /dev/null
+
+...Password...
+...Downloading and Installing....
+
+brew install gnuplot
+````
+
+## Plot histogram (unsuccessfully)
+````
+eduroam-140-210:vcftools_0.1.13 aminachabach$ awk '!/IN/' out.imiss | cut -f5 > totalmissing
+eduroam-140-210:vcftools_0.1.13 aminachabach$ gnuplot << \EOF 
+> set terminal dumb size 120, 30
+> set autoscale 
+> unset label
+> set title "Histogram of % missing data per individual"
+> set ylabel "Number of Occurrences"
+> set xlabel "% of missing data"
+> #set yr [0:100000]
+> binwidth=0.01
+> bin(x,width)=width*floor(x/width) + binwidth/2.0
+> plot 'totalmissing' using (bin($1,binwidth)):(1.0) smooth freq with boxes
+> pause -1
+> EOF
+````
+##  For now we can identify individuals with a lot of missing data and remove them. Decide on a cutoff based on your results from above. You can now use vcftools to identify these individuals by name:
+
+#This is a bit of linux code that first finds all the lines where F_MISS > 0.5. It then copies the names of these lines (i.e. the first column) to an output file called lowDP.indv
+
+```
+eduroam-140-210:vcftools_0.1.13 aminachabach$ awk '$5 > 0.5' out.imiss | cut -f1 > lowDP.indv
+````
+
+#we can look at this like before
+
+````
+eduroam-140-210:vcftools_0.1.13 aminachabach$ cat lowDP.indv
+INDV
+PHE113.control3
+PHE133
+PHE134
+PHE135
+PHE137
+````
+#and we can count the number of indivs we'll lose
+
+````
+eduroam-140-210:vcftools_0.1.13 aminachabach$ cat lowDP.indv |wc -l
+       6
+````
+
+## Once you're happy with this cutoff, we can remove the individuals from the vcf file
+
+````
+eduroam-140-210:vcftools_0.1.13 aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --vcf filter.missing.recode.vcf --remove lowDP.indv --recode --recode-INFO-all --out filename.final
+
+VCFtools - v0.1.13
+(C) Adam Auton and Anthony Marcketta 2009
+
+Parameters as interpreted:
+	--vcf filter.missing.recode.vcf
+	--exclude lowDP.indv
+	--recode-INFO-all
+	--out filename.final
+	--recode
+
+Excluding individuals in 'exclude' list
+After filtering, kept 64 out of 69 Individuals
+Outputting VCF file...
+After filtering, kept 41503 out of a possible 41503 Sites
+Run Time = 5.00 seconds
+````
+#and see what your data look like now
+````
+eduroam-140-210:vcftools_0.1.13 aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --vcf filename.final.recode.vcf
+
+VCFtools - v0.1.13
+(C) Adam Auton and Anthony Marcketta 2009
+
+Parameters as interpreted:
+	--vcf filename.final.recode.vcf
+
+After filtering, kept 64 out of 64 Individuals
+After filtering, kept 41503 out of a possible 41503 Sites
+Run Time = 1.00 seconds
+````
+
+## Summary stats in R
+#https://cran.r-project.org/web/packages/pcadapt/vignettes/pcadapt.html
+#To run the package, you need to install the package and load it using the following command lines:
+````
+install.packages("pcadapt")
+library(pcadapt)
+````
+## A. Reading genotype data
+```
+install.packages("pcadapt")
+library(pcadapt)
+````
+
+#For example, assume your genotype file is called “foo.lfmm” and is located in the directory “path_to_directory”, use the following command lines:
+#data into r (change type to vcf bc it's a vcf file)
+```
+path_to_file <- "/Users/aminachabach/Project/vcftools_0.1.13/filename.final.recode.vcf"
+filename <- read.pcadapt(path_to_file, type = "vcf")
+````
+
+#To run the provided example, we retrieve the file location of the example and we use read.pcadapt to convert the bed example to the  pcadapt format.
+````
+path_to_file <- system.file("extdata", "geno3pops.bed", package = "pcadapt")
+filename <- read.pcadapt(path_to_file, type = "bed")
+````
+## B. Choosing the number K of Principal Components
+#NB: by default, data are assumed to be diploid. To specify the ploidy, use the argument ploidy (ploidy=2 for diploid species and  ploidy = 1 for haploid species) in the pcadapt function.
+````
+x <- pcadapt(input = filename, K = 20, ploidy=2) 
 `````
 
+## B.1. Scree plot
+````
+plot(x, option = "screeplot")
+plot(x, option = "screeplot", K = 10)
+`````
 
+## B.2. Score plot
 
+#With integers
+````
+poplist.int <- c(rep(1, 50), rep(2, 50), rep(3, 50))
+````
 
+#With names
+````
+poplist.names <- c(rep("POP1", 50),rep("POP2", 50),rep("POP3", 50))
+print(poplist.int)
+print(poplist.names)
+plot(x, option = "scores", pop = poplist.int)
+````
 
 
