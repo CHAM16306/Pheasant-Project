@@ -103,7 +103,7 @@ cp /Users/aminachabach/Project/vcftools_0.1.13/cpp/vcftools /Users/aminachabach/
 
 ````
 
-# To find path if using the same (did this work?????)
+# To find path if using the same
 ```
 eduroam-140-210:vcftools_0.1.13 aminachabach$ echo $PATH
 /usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/X11/bin
@@ -202,7 +202,7 @@ ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/
 brew install gnuplot
 ````
 
-## Plot histogram (unsuccessfully)
+## Plot histogram 
 ````
 eduroam-140-210:vcftools_0.1.13 aminachabach$ awk '!/IN/' out.imiss | cut -f5 > totalmissing
 eduroam-140-210:vcftools_0.1.13 aminachabach$ gnuplot << \EOF 
@@ -317,9 +317,37 @@ attr(,"class")
 
 ## B. Choosing the number K of Principal Components
 #NB: by default, data are assumed to be diploid. To specify the ploidy, use the argument ploidy (ploidy=2 for diploid species and  ploidy = 1 for haploid species) in the pcadapt function.
+#Look at what the terms mean
 ````
-x <- pcadapt(input = filename, K = 20, ploidy=2) 
+x <- pcadapt(input = filename, K = 20, ploidy=2)
+summary(x)
+                Length Class  Mode   
+
+scores            1280 -none- numeric	- is a (n,K) matrix corresponding to the projections of the individuals onto each PC.
+
+singular.values     20 -none- numeric	-  is a vector containing the K ordered squared root of the proportion of variance explained by each PC.
+
+loadings        830060 -none- numeric	-  is a (L,K) matrix containing the correlations between each genetic marker and each PC.
+
+zscores         830060 -none- numeric	- is a (L,K) matrix containing the z-scores (A z-score (aka, a standard score) indicates how many standard deviations an element is from the mean. A z-score can be calculated from the following formula. where z is the z-score, X is the value of the element, μ is the population mean, and σ is the standard deviation.)
+
+af               41503 -none- numeric	- is a vector of size L containing allele frequencies of derived alleles where genotypes of 0 are supposed to code for homozygous for the reference allele.
+
+maf              41503 -none- numeric	- missing allele frequency
+
+chi2.stat        41503 -none- numeric	- is a vector of size L containing minor allele frequencies.
+
+stat             41503 -none- numeric	- is a vector of size L containing squared Mahalanobis distances by default.
+
+gif                  1 -none- numeric	- is a numerical value corresponding to the genomic inflation factor estimated from   
+
+pvalues          41503 -none- numeric	- is a vector containing L p-values.
+
+pass             40992 -none- numeric	- A list of SNPs indices that are kept after exclusion based on the minor allele frequency threshold.
+
+> 
 `````
+
 
 ## B.1. Scree plot
 #The ‘scree plot’ displays in decreasing order the percentage of variance explained by each PC. Up to a constant, it corresponds to the eigenvalues in decreasing order. The ideal pattern in a scree plot is a steep curve followed by a bend and a straight line. The eigenvalues that correspond to random variation lie on a straight line whereas the ones that correspond to population structure lie on a steep curve. We recommend to keep PCs that correspond to eigenvalues to the left of the straight line (Cattell’s rule). In the provided example, K = 2 is the optimal choice for K. 
