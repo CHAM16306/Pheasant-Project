@@ -283,7 +283,7 @@ Run Time = 1.00 seconds
 
 
 
-## Summary stats in R
+##   Summary stats in R
 #https://cran.r-project.org/web/packages/pcadapt/vignettes/pcadapt.html
 #To run the package, you need to install the package and load it using the following command lines:
 ````
