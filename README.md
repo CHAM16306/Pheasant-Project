@@ -281,6 +281,8 @@ After filtering, kept 41503 out of a possible 41503 Sites
 Run Time = 1.00 seconds
 ````
 
+
+
 ## Summary stats in R
 #https://cran.r-project.org/web/packages/pcadapt/vignettes/pcadapt.html
 #To run the package, you need to install the package and load it using the following command lines:
@@ -301,11 +303,18 @@ path_to_file <- "/Users/aminachabach/Project/vcftools_0.1.13/filename.final.reco
 filename <- read.pcadapt(path_to_file, type = "vcf")
 ````
 
-#To run the provided example, we retrieve the file location of the example and we use read.pcadapt to convert the bed example to the  pcadapt format.
+#filename : shows whta the data is :
 ````
-path_to_file <- system.file("extdata", "geno3pops.bed", package = "pcadapt")
-filename <- read.pcadapt(path_to_file, type = "bed")
+filename
+[1] "/private/var/folders/s4/wvv7tp457svc9s2p1tgv6rzh0000gn/T/RtmpcqN6VJ/fileedb23ec34b55.pcadapt.bed"
+attr(,"n")
+[1] 64
+attr(,"p")
+[1] 41503
+attr(,"class")
+[1] "pcadapt_bed"
 ````
+
 ## B. Choosing the number K of Principal Components
 #NB: by default, data are assumed to be diploid. To specify the ploidy, use the argument ploidy (ploidy=2 for diploid species and  ploidy = 1 for haploid species) in the pcadapt function.
 ````
@@ -313,6 +322,9 @@ x <- pcadapt(input = filename, K = 20, ploidy=2)
 `````
 
 ## B.1. Scree plot
+#The ‘scree plot’ displays in decreasing order the percentage of variance explained by each PC. Up to a constant, it corresponds to the eigenvalues in decreasing order. The ideal pattern in a scree plot is a steep curve followed by a bend and a straight line. The eigenvalues that correspond to random variation lie on a straight line whereas the ones that correspond to population structure lie on a steep curve. We recommend to keep PCs that correspond to eigenvalues to the left of the straight line (Cattell’s rule). In the provided example, K = 2 is the optimal choice for K. 
+#Another option to choose the number of PCs is based on the ‘score plot’ that displays population structure. The score plot displays the projections of the individuals onto the specified principal components. Using the score plot, the choice of K can be limited to the values of K that correspond to a relevant level of population structure.
+#The ‘scree plot’ displays in decreasing order the percentage of variance explained by each PC. Up to a constant, it corresponds to the eigenvalues in decreasing order. The ideal pattern in a scree plot is a steep curve followed by a bend and a straight line. The eigenvalues that correspond to random variation lie on a straight line whereas the ones that correspond to population structure lie on a steep curve. We recommend to keep PCs that correspond to eigenvalues to the left of the straight line (Cattell’s rule). In the provided example, K = 2 is the optimal choice for K. The plot function displays a scree plot:
 ````
 plot(x, option = "screeplot")
 plot(x, option = "screeplot", K = 10)
@@ -320,17 +332,46 @@ plot(x, option = "screeplot", K = 10)
 
 ## B.2. Score plot
 
-#With integers
-````
-poplist.int <- c(rep(1, 50), rep(2, 50), rep(3, 50))
+#What we tried:
 ````
 
-#With names
+poplist.names <- pheasantpops[,7]
+poplist.names <- data.frame(poplist.names)
+
+poplist.colour <- pheasantpops[,8]
+poplist.colour <- data.frame(poplist.colour)
+
+str(poplist.names)
+str(poplist.colour)
+
+poplist.names2 <- c(poplist.colour, poplist.names)
+str(poplist.names2)
+
+plot(x, option = "scores", pop = poplist.names2)
+
+....
+
+
+poplist.names <- c(rep("POP1", 20),rep("POP2", 20),rep("POP3", 24))
+plot(x, option = "scores", pop = poplist.names)
+str(poplist.names)
+
+str(poplist.colour)
+as.character()
+poplist.colour1 <- as.character(poplist.colour)
+str(poplist.colour1)
+`````
+
+#What worked (iport csv file, ecel files seems to have been the problem):
+
 ````
-poplist.names <- c(rep("POP1", 50),rep("POP2", 50),rep("POP3", 50))
-print(poplist.int)
-print(poplist.names)
-plot(x, option = "scores", pop = poplist.int)
+poplist.csv <- read.csv("/Users/aminachabach/Project/pheasantpops.csv", header=TRUE)
+head(poplist.csv)
+
+poplist.names <- poplist.csv[,7]
+str(poplist.names)
+
+plot(x, option = "scores", pop = poplist.names)
 ````
 
 
