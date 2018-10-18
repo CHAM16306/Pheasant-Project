@@ -281,6 +281,25 @@ After filtering, kept 41503 out of a possible 41503 Sites
 Run Time = 1.00 seconds
 ````
 
+## Remove individual PHE126 (nachträglich gemacht) before filtering with Hardy and heterzygocity exces
+#We did this bc seems to be outlier (ie. Malaysian that clustered with Mountain sp.)
+
+````
+eduroam-140-210:vcftools_0.1.13 aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --remove-indv PHE126 --vcf filename.final.recode.vcf --recode --recode-INFO-all --out filename.removed.vcf
+
+VCFtools - v0.1.13
+(C) Adam Auton and Anthony Marcketta 2009
+
+Parameters as interpreted:
+	--vcf filename.final.recode.vcf
+	--out filename.removed.vcf
+	--remove-indv PHE126
+
+Excluding individuals in 'exclude' list
+After filtering, kept 63 out of 64 Individuals
+After filtering, kept 41503 out of a possible 41503 Sites
+Run Time = 1.00 seconds
+````
 
 
 ##   Summary stats in R
@@ -476,6 +495,22 @@ data(file)
 ````
 phepop <- genind2genpop(file)
 phepop
+
+/// GENPOP OBJECT /////////
+
+ // 8 populations; 41,503 loci; 83,436 alleles; size: 24.6 Mb
+
+ // Basic content
+   @tab:  8 x 83436 matrix of allele counts
+   @loc.n.all: number of alleles per locus (range: 2-4)
+   @loc.fac: locus factor for the 83436 columns of @tab
+   @all.names: list of allele names for each locus
+   @ploidy: ploidy of each individual  (range: 2-2)
+   @type:  codom
+   @call: genind2genpop(x = file)
+
+ // Optional content
+   - empty -
 ````
 
 #As in genind objects, data are stored as numbers of alleles, but this time for populations
@@ -917,6 +952,285 @@ SNP_333    1.0000000000  1.0000000000           NaN
  [ reached getOption("max.print") -- omitted 41170 rows ]
  ````
  
+#Are these values significant? This question can be addressed using the G-statistic test
+#[3]; it is implemented for genind objects and produces a randtest object (package ade4).
+#nsim is used to simulate a single or "n" prospective clinical trial(s) using the PK data and then link them to toxicity under a specified dose-toxicity configuration. The objective is to determine the maximum tolerated dose (MTD).
+````
+Gtest <- gstat.randtest(file,nsim=99)
+Gtest
+plot(Gtest)
+````
+
+````
+> Gtest <- gstat.randtest(file,nsim=99)
+There were 50 or more warnings (use warnings() to see the first 50)
+> Gtest
+Monte-Carlo test
+Call: gstat.randtest(x = file, nsim = 99)
+
+Observation: 0 
+
+Based on 99 replicates
+Simulated p-value: 1 
+Alternative hypothesis: greater 
+
+    Std.Obs Expectation    Variance 
+        NaN           0           0 
+````
+
+
+##How to subset your data (in terminal!!)
+
+#Create a plink file from the vcf file.
+
+````
+eduroam-140-210:vcftools_0.1.13 aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --vcf filename.final.recode.vcf --plink --out CHN.229.Neutral.plink
+
+VCFtools - v0.1.13
+(C) Adam Auton and Anthony Marcketta 2009
+
+Parameters as interpreted:
+	--vcf filename.final.recode.vcf
+	--out CHN.229.Neutral.plink
+	--plink
+
+After filtering, kept 64 out of 64 Individuals
+Writing PLINK PED and MAP files ... 
+
+Unrecognized values used for CHROM: locus_7 - Replacing with 0.
+....
+
+````
+
+#Import the .map file into R to get a list of the SNP names and to subset this to 1000 random names (in r)
+
+````
+CHN.Neutral.loci.names.map <- read.table("/Users/aminachabach/Project/vcftools_0.1.13/CHN.229.Neutral.plink.map", header=F)
+CHN.Neutral.loci.names <-  CHN.Neutral.loci.names.map$V2
+CHN.Neutral.loci.names <- as.data.frame(CHN.Neutral.loci.names)
+CHN.1000.loci.names <- CHN.Neutral.loci.names[sample(nrow(CHN.Neutral.loci.names),1000),]
+CHN.1000.loci.names <- as.data.frame(CHN.1000.loci.names)
+summary(CHN.1000.loci.names)
+write.table(CHN.1000.loci.names, "CHN.1000.loci.names", quote=F, row.names=F, col.names=F)
+
+>summary(CHN.1000.loci.names)
+      CHN.1000.loci.names
+ locus_10016:62 :  1     
+ locus_10043:246:  1     
+ locus_10066:2  :  1     
+ locus_10127:16 :  1     
+ locus_10127:225:  1     
+ locus_10204:37 :  1     
+ (Other)        :994 
+
+
+````
+
+#Subset the vcf file to get 1000 loci (in terminal)
+
+````
+eduroam-140-210:vcftools_0.1.13 aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --vcf filename.final.recode.vcf --snps CHN.1000.loci.names --recode --recode-INFO-all --out CHN.1000Neutral
+
+VCFtools - v0.1.13
+(C) Adam Auton and Anthony Marcketta 2009
+
+Parameters as interpreted:
+	--vcf filename.final.recode.vcf
+	--recode-INFO-all
+	--out CHN.1000Neutral
+	--recode
+	--snps CHN.1000.loci.names
+
+After filtering, kept 64 out of 64 Individuals
+Outputting VCF file...
+After filtering, kept 0 out of a possible 41503 Sites
+No data left for analysis!
+Run Time = 1.00 seconds
+
+````
+
+
+## Hardy-Weinberg filter
+
+# Installing plink
+```
+eduroam-140-210:vcftools_0.1.13 aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/plink-1.07-mac-intel/plink --noweb
+
+@----------------------------------------------------------@
+|        PLINK!       |     v1.07      |   10/Aug/2009     |
+|----------------------------------------------------------|
+|  (C) 2009 Shaun Purcell, GNU General Public License, v2  |
+|----------------------------------------------------------|
+|  For documentation, citation & bug-report instructions:  |
+|        http://pngu.mgh.harvard.edu/purcell/plink/        |
+@----------------------------------------------------------@
+
+Skipping web check... [ --noweb ] 
+Writing this text to log file [ plink.log ]
+Analysis started: Thu Oct 18 14:32:58 2018
+
+Options in effect:
+	--noweb
+
+Before frequency and genotyping pruning, there are 0 SNPs
+0 founders and 0 non-founders found
+0 SNPs failed missingness test ( GENO > 1 )
+0 SNPs failed frequency test ( MAF < 0 )
+After frequency and genotyping pruning, there are 0 SNPs
+
+ERROR: Stopping as there are no SNPs left for analysis
+```
+#Dw about the error (--noweb not necessary either!)
+
+#Create plink file (with the filename.removed so only 63 individuals)
+
+````
+eduroam-140-210:vcftools_0.1.13 aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --vcf filename.removed.recode.vcf --plink --out CHN.229.Neutral.plink
+
+VCFtools - v0.1.13
+(C) Adam Auton and Anthony Marcketta 2009
+
+Parameters as interpreted:
+	--vcf filename.removed.recode.vcf
+	--out CHN.229.Neutral.plink
+	--plink
+
+After filtering, kept 63 out of 63 Individuals
+Writing PLINK PED and MAP files ... 
+After filtering, kept 41503 out of a possible 41503 Sites
+Run Time = 3.00 seconds
+````
+
+# To exclude markers that failure the Hardy-Weinberg test at a specified significance threshold, use the option:
+#The following output will appear in the console window and in plink.log, detailing how many SNPs failed the Hardy-Weinberg test, for the sample as a whole, and (when PLINK has detected a disease phenotype) for cases and controls separately:
+#--hardy: Reports a p-value for each site from a Hardy-Weinberg Equilibrium test (as defined by Wigginton, Cutler and Abecasis (2005)). The resulting file (with suffix ".hwe") also contains the Observed numbers of Homozygotes and Heterozygotes and the corresponding Expected numbers under HWE.
+
+````
+eduroam-140-210:vcftools_0.1.13 aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/plink-1.07-mac-intel/plink --file CHN.229.Neutral.plink --hwe 0.001
+
+@----------------------------------------------------------@
+|        PLINK!       |     v1.07      |   10/Aug/2009     |
+|----------------------------------------------------------|
+|  (C) 2009 Shaun Purcell, GNU General Public License, v2  |
+|----------------------------------------------------------|
+|  For documentation, citation & bug-report instructions:  |
+|        http://pngu.mgh.harvard.edu/purcell/plink/        |
+@----------------------------------------------------------@
+
+Web-based version check ( --noweb to skip )
+Recent cached web-check found...Problem connecting to web
+
+Writing this text to log file [ plink.log ]
+Analysis started: Thu Oct 18 15:35:07 2018
+
+Options in effect:
+	--file CHN.229.Neutral.plink
+	--hwe 0.001
+
+41081 (of 41081) markers to be included from [ CHN.229.Neutral.plink.map ]
+Warning, found 63 individuals with ambiguous sex codes
+These individuals will be set to missing ( or use --allow-no-sex )
+Writing list of these individuals to [ plink.nosex ]
+63 individuals read from [ CHN.229.Neutral.plink.ped ] 
+0 individuals with nonmissing phenotypes
+Assuming a disease phenotype (1=unaff, 2=aff, 0=miss)
+Missing phenotype value is also -9
+0 cases, 0 controls and 63 missing
+0 males, 0 females, and 63 of unspecified sex
+Before frequency and genotyping pruning, there are 41081 SNPs
+63 founders and 0 non-founders found
+27447 markers to be excluded based on HWE test ( p <= 0.001 )
+	0 markers failed HWE test in cases
+	0 markers failed HWE test in controls
+Total genotyping rate in remaining individuals is 0.753766
+0 SNPs failed missingness test ( GENO > 1 )
+0 SNPs failed frequency test ( MAF < 0 )
+After frequency and genotyping pruning, there are 13634 SNPs
+After filtering, 0 cases, 0 controls and 63 missing
+After filtering, 0 males, 0 females, and 63 of unspecified sex
+
+Analysis finished: Thu Oct 18 15:35:12 2018
+
+````
+## Heterozygosity excess filter
+#--het: Calculates a measure of heterozygosity on a per-individual basis. Specfically, the inbreeding coefficient, F, is estimated for each individual using a method of moments. The resulting file has the suffix ".het".
+
+
+````
+eduroam-140-210:vcftools_0.1.13 aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/plink-1.07-mac-intel/plink --file CHN.229.Neutral.plink --het
+
+@----------------------------------------------------------@
+|        PLINK!       |     v1.07      |   10/Aug/2009     |
+|----------------------------------------------------------|
+|  (C) 2009 Shaun Purcell, GNU General Public License, v2  |
+|----------------------------------------------------------|
+|  For documentation, citation & bug-report instructions:  |
+|        http://pngu.mgh.harvard.edu/purcell/plink/        |
+@----------------------------------------------------------@
+
+Web-based version check ( --noweb to skip )
+Recent cached web-check found...Problem connecting to web
+
+Writing this text to log file [ plink.log ]
+Analysis started: Thu Oct 18 15:48:17 2018
+
+Options in effect:
+	--file CHN.229.Neutral.plink
+	--het
+
+41081 (of 41081) markers to be included from [ CHN.229.Neutral.plink.map ]
+Warning, found 63 individuals with ambiguous sex codes
+These individuals will be set to missing ( or use --allow-no-sex )
+Writing list of these individuals to [ plink.nosex ]
+63 individuals read from [ CHN.229.Neutral.plink.ped ] 
+0 individuals with nonmissing phenotypes
+Assuming a disease phenotype (1=unaff, 2=aff, 0=miss)
+Missing phenotype value is also -9
+0 cases, 0 controls and 63 missing
+0 males, 0 females, and 63 of unspecified sex
+Before frequency and genotyping pruning, there are 41081 SNPs
+63 founders and 0 non-founders found
+Total genotyping rate in remaining individuals is 0.753766
+0 SNPs failed missingness test ( GENO > 1 )
+0 SNPs failed frequency test ( MAF < 0 )
+After frequency and genotyping pruning, there are 41081 SNPs
+After filtering, 0 cases, 0 controls and 63 missing
+After filtering, 0 males, 0 females, and 63 of unspecified sex
+Converting data to Individual-major format
+Writing individual heterozygosity information to [ plink.het ] 
+
+Analysis finished: Thu Oct 18 15:48:22 2018
+````
+
+
+
+
+### (Tips and Tricks)
+
+#sed = stream editor ...
+#rm = remove
+
+
+## Project ideas
+
+#how do filters affect the analysis?
+#what analysis will we be using?
+#data that is not sensitive to analysis
+#What data is available online? --> project question: given demographic history of population what inbreeding do we expect?
+#simulated data set (can have pedigree)
+#genomic data: look for paper on captive bred populations
+#paper might have link to genomic data
+
+#taxonomically different? compare if same demographic history
+
+
+
+
+
+
+
+
+
 
 
 
