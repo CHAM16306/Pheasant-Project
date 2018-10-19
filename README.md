@@ -285,7 +285,7 @@ Run Time = 1.00 seconds
 #We did this bc seems to be outlier (ie. Malaysian that clustered with Mountain sp.)
 
 ````
-eduroam-140-210:vcftools_0.1.13 aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --remove-indv PHE126 --vcf filename.final.recode.vcf --recode --recode-INFO-all --out filename.removed.vcf
+eduroam-140-210:vcftools_0.1.13 aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --remove-indv PHE126 --vcf filename.final.recode.vcf --recode --recode-INFO-all --out filename.removed
 
 VCFtools - v0.1.13
 (C) Adam Auton and Anthony Marcketta 2009
@@ -979,75 +979,6 @@ Alternative hypothesis: greater
 ````
 
 
-##How to subset your data (in terminal!!)
-
-#Create a plink file from the vcf file.
-
-````
-eduroam-140-210:vcftools_0.1.13 aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --vcf filename.final.recode.vcf --plink --out CHN.229.Neutral.plink
-
-VCFtools - v0.1.13
-(C) Adam Auton and Anthony Marcketta 2009
-
-Parameters as interpreted:
-	--vcf filename.final.recode.vcf
-	--out CHN.229.Neutral.plink
-	--plink
-
-After filtering, kept 64 out of 64 Individuals
-Writing PLINK PED and MAP files ... 
-
-Unrecognized values used for CHROM: locus_7 - Replacing with 0.
-....
-
-````
-
-#Import the .map file into R to get a list of the SNP names and to subset this to 1000 random names (in r)
-
-````
-CHN.Neutral.loci.names.map <- read.table("/Users/aminachabach/Project/vcftools_0.1.13/CHN.229.Neutral.plink.map", header=F)
-CHN.Neutral.loci.names <-  CHN.Neutral.loci.names.map$V2
-CHN.Neutral.loci.names <- as.data.frame(CHN.Neutral.loci.names)
-CHN.1000.loci.names <- CHN.Neutral.loci.names[sample(nrow(CHN.Neutral.loci.names),1000),]
-CHN.1000.loci.names <- as.data.frame(CHN.1000.loci.names)
-summary(CHN.1000.loci.names)
-write.table(CHN.1000.loci.names, "CHN.1000.loci.names", quote=F, row.names=F, col.names=F)
-
->summary(CHN.1000.loci.names)
-      CHN.1000.loci.names
- locus_10016:62 :  1     
- locus_10043:246:  1     
- locus_10066:2  :  1     
- locus_10127:16 :  1     
- locus_10127:225:  1     
- locus_10204:37 :  1     
- (Other)        :994 
-
-
-````
-
-#Subset the vcf file to get 1000 loci (in terminal)
-
-````
-eduroam-140-210:vcftools_0.1.13 aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --vcf filename.final.recode.vcf --snps CHN.1000.loci.names --recode --recode-INFO-all --out CHN.1000Neutral
-
-VCFtools - v0.1.13
-(C) Adam Auton and Anthony Marcketta 2009
-
-Parameters as interpreted:
-	--vcf filename.final.recode.vcf
-	--recode-INFO-all
-	--out CHN.1000Neutral
-	--recode
-	--snps CHN.1000.loci.names
-
-After filtering, kept 64 out of 64 Individuals
-Outputting VCF file...
-After filtering, kept 0 out of a possible 41503 Sites
-No data left for analysis!
-Run Time = 1.00 seconds
-
-````
 
 
 ## Hardy-Weinberg filter
@@ -1207,28 +1138,43 @@ After filtering, 0 males, 0 females, and 63 of unspecified sex
 
 Analysis finished: Thu Oct 18 17:28:12 2018
 ````
+#or with vcf tools (which automatically removes the sites unlike plink
 
-# Sort data
+````
+eduroam-125-46:vcftools_0.1.13 aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --vcf filename.removed.recode.vcf --hwe 0.001 --recode --recode-INFO-all --out HWvcf
+
+VCFtools - v0.1.13
+(C) Adam Auton and Anthony Marcketta 2009
+
+Parameters as interpreted:
+	--vcf filename.removed.recode.vcf
+	--recode-INFO-all
+	--max-alleles 2
+	--hwe 0.001
+	--out HWvcf
+	--recode
+
+After filtering, kept 63 out of 63 Individuals
+Outputting VCF file...
+After filtering, kept 13634 out of a possible 41503 Sites
+Run Time = 3.00 seconds
+````
+
+# Sort data (if using plink needed to remove sites)
 ````
 sort -k 3,3 myFile
 
 here: 
 sort -k 9,9 plink.hwe
 ````
-# Remove markers with p<0.001
+# Remove markers with p<0.001 (makes them NA not removed??)
 ````
 eduroam-125-46:vcftools_0.1.13 aminachabach$  awk '(NR>1) && ($9 > 0.001 ) ' plink.hwe > plink.hwe.2
 eduroam-125-46:vcftools_0.1.13 aminachabach$ less plink.hwe.2
 ````
 
 
-
-
-
-
-
-
-## Heterozygosity excess filter
+## Heterozygosity excess filter (used on the plink which didn't remove HWE)
 #--het: Calculates a measure of heterozygosity on a per-individual basis. Specfically, the inbreeding coefficient, F, is estimated for each individual using a method of moments. The resulting file has the suffix ".het".
 
 
@@ -1276,6 +1222,93 @@ Converting data to Individual-major format
 Writing individual heterozygosity information to [ plink.het ] 
 
 Analysis finished: Thu Oct 18 15:48:22 2018
+````
+#or with vcf tools (creates file: out.het)
+#
+````
+eduroam-125-46:vcftools_0.1.13 aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --vcf HWvcf.recode.vcf --het
+
+VCFtools - v0.1.13
+(C) Adam Auton and Anthony Marcketta 2009
+
+Parameters as interpreted:
+	--vcf HWvcf.recode.vcf
+	--het
+
+After filtering, kept 63 out of 63 Individuals
+Outputting Individual Heterozygosity
+After filtering, kept 13634 out of a possible 13634 Sites
+Run Time = 0.00 seconds
+````
+
+## How to subset your data (in terminal!!)
+
+#Create a plink file from the vcf file.
+
+````
+eduroam-140-210:vcftools_0.1.13 aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --vcf HWvcf.recode.vcf --plink --out CHN.229.Neutral.plink
+
+VCFtools - v0.1.13
+(C) Adam Auton and Anthony Marcketta 2009
+
+Parameters as interpreted:
+	--vcf HWvcf.recode.vcf
+	--out CHN.229.Neutral.plink
+	--plink
+
+After filtering, kept 63 out of 63 Individuals
+Writing PLINK PED and MAP files ... 
+
+Unrecognized values used for CHROM: locus_7 - Replacing with 0.
+....
+
+````
+
+#Import the .map file into R to get a list of the SNP names and to subset this to 1000 random names (in r)
+
+````
+CHN.Neutral.loci.names.map <- read.table("/Users/aminachabach/Project/vcftools_0.1.13/CHN.229.Neutral.plink.map", header=F)
+CHN.Neutral.loci.names <-  CHN.Neutral.loci.names.map$V2
+CHN.Neutral.loci.names <- as.data.frame(CHN.Neutral.loci.names)
+CHN.1000.loci.names <- CHN.Neutral.loci.names[sample(nrow(CHN.Neutral.loci.names),1000),]
+CHN.1000.loci.names <- as.data.frame(CHN.1000.loci.names)
+summary(CHN.1000.loci.names)
+write.table(CHN.1000.loci.names, "CHN.1000.loci.names", quote=F, row.names=F, col.names=F)
+
+>summary(CHN.1000.loci.names)
+      CHN.1000.loci.names
+ locus_10016:62 :  1     
+ locus_10043:246:  1     
+ locus_10066:2  :  1     
+ locus_10127:16 :  1     
+ locus_10127:225:  1     
+ locus_10204:37 :  1     
+ (Other)        :994 
+
+
+````
+
+#Subset the vcf file to get 1000 loci (in terminal) DOESN'T WORK YET
+
+````
+eduroam-140-210:vcftools_0.1.13 aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --vcf filename.final.recode.vcf --snps CHN.1000.loci.names --recode --recode-INFO-all --out CHN.1000Neutral
+
+VCFtools - v0.1.13
+(C) Adam Auton and Anthony Marcketta 2009
+
+Parameters as interpreted:
+	--vcf filename.final.recode.vcf
+	--recode-INFO-all
+	--out CHN.1000Neutral
+	--recode
+	--snps CHN.1000.loci.names
+
+After filtering, kept 64 out of 64 Individuals
+Outputting VCF file...
+After filtering, kept 0 out of a possible 41503 Sites
+No data left for analysis!
+Run Time = 1.00 seconds
+
 ````
 
 
