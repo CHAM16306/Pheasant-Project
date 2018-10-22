@@ -1316,7 +1316,12 @@ Run Time = 1.00 seconds
 
 ### (Tips and Tricks)
 
-#sed = stream editor ...
+#How to replace a : (colon) with a space (in file and then give it new name)
+
+````
+eduroam-125-46:vcftools_0.1.13 aminachabach$ sed 's/:/ /g' CHN.1000.loci.names > CHN.1000.loci.names2
+````
+
 #rm = remove
 
 
@@ -1330,16 +1335,17 @@ Run Time = 1.00 seconds
 #genomic data: look for paper on captive bred populations
 #paper might have link to genomic data
 
+
 #taxonomically different? compare if same demographic history
+#look for genomic rad data!! (we would use same filters --see bobbie)
+#Molecular ecology journal
+#long term project soay sheep inbreeding (maybe rad data)
+#reed warblers
+#katherine csillery : test on different measure of inbreeding
 
-
-
-
-
-
-
-
-
+##check that heterozygosity not higher than 0.6
+#What are inbreeding analysis actually measuring
+#Ask Bobbie for notes
 
 
 
