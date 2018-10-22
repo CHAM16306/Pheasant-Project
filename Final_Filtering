@@ -112,7 +112,7 @@ OUTPUT:
 
 #alex said this should be in proportions but not sure?
 ```
-sort -k ,9 plink.het  (if p value in column 9)
+sort -k 9,9 plink.het  (if p value in column 9)
 
 #GET RID OF THEM: 
 awk '(NR>1) && ($9 > 0.5 ) ' plink.het > plink.het.2
