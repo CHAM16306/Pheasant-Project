@@ -97,13 +97,52 @@ cat lowDP.indv |wc -l
 
 #heterozygosity 
 ```
-/Users/aminachabach/Project/vcftools_0.1.13/plink-1.07-mac-intel/plink --file myplink.data --het
+eduroam-125-46:vcftools_0.1.13 aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/plink-1.07-mac-intel/plink --file myplink.data --hardy
 
-#output: 40515 (of 40515) markers to be included from [ myplink.data.map ]
-#Writing individual heterozygosity information to [ plink.het ]
+@----------------------------------------------------------@
+|        PLINK!       |     v1.07      |   10/Aug/2009     |
+|----------------------------------------------------------|
+|  (C) 2009 Shaun Purcell, GNU General Public License, v2  |
+|----------------------------------------------------------|
+|  For documentation, citation & bug-report instructions:  |
+|        http://pngu.mgh.harvard.edu/purcell/plink/        |
+@----------------------------------------------------------@
+
+Web-based version check ( --noweb to skip )
+Recent cached web-check found...Problem connecting to web
+
+Writing this text to log file [ plink.log ]
+Analysis started: Mon Oct 22 16:07:54 2018
+
+Options in effect:
+	--file myplink.data
+	--hardy
+
+40515 (of 40515) markers to be included from [ myplink.data.map ]
+Warning, found 63 individuals with ambiguous sex codes
+These individuals will be set to missing ( or use --allow-no-sex )
+Writing list of these individuals to [ plink.nosex ]
+63 individuals read from [ myplink.data.ped ] 
+0 individuals with nonmissing phenotypes
+Assuming a disease phenotype (1=unaff, 2=aff, 0=miss)
+Missing phenotype value is also -9
+0 cases, 0 controls and 63 missing
+0 males, 0 females, and 63 of unspecified sex
+Before frequency and genotyping pruning, there are 40515 SNPs
+63 founders and 0 non-founders found
+Writing Hardy-Weinberg tests (founders-only) to [ plink.hwe ] 
+27434 markers to be excluded based on HWE test ( p <= 0.001 )
+	0 markers failed HWE test in cases
+	0 markers failed HWE test in controls
+Total genotyping rate in remaining individuals is 0.7543
+0 SNPs failed missingness test ( GENO > 1 )
+0 SNPs failed frequency test ( MAF < 0 )
+After frequency and genotyping pruning, there are 13081 SNPs
+After filtering, 0 cases, 0 controls and 63 missing
+After filtering, 0 males, 0 females, and 63 of unspecified sex
 ```
 
-will need to filter out everything that is below 0.5 (theoretical filter). 
+will need to filter out everything that is above 0.5 (theoretical filter) of observed heterozygostity. 
 OUTPUT: 
 
 
