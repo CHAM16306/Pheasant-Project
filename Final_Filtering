@@ -1,16 +1,16 @@
 ## ORDER:
 
-1.	MAF (get rid of hetero / missingness
-2.	Missingness
-3.	MAF again – because allele freqs would have changed
-4.	HET (plink) 
-5.	Thin – pop structure genomes. Need to remove linked loci – prob still remove, but measures of inbreeding don’t want it. 
+#1.	MAF (get rid of hetero / missingness
+#2.	Missingness
+#3.	MAF again – because allele freqs would have changed
+#4.	HET (plink) 
+#5.	Thin – pop structure genomes. Need to remove linked loci – prob still remove, but measures of inbreeding don’t want it. 
 
-→ create data set 1-4, then another for 5 i.e. different input sets. 
+#→ create data set 1-4, then another for 5 i.e. different input sets. 
 
-HWE not expected nc just some indvs from same sp from diff breders)
-•	Decide analyses for inbreeding: what do these do to the data – important bc some filters may bias the data set
-•	HET shouldn’t be higher than 0.5 – that’s the theoretical limit. 
+#HWE not expected nc just some indvs from same sp from diff breders)
+#•	Decide analyses for inbreeding: what do these do to the data – important bc some filters may bias the data set
+#•	HET shouldn’t be higher than 0.5 – that’s the theoretical limit. 
 
 
 #set the working directory
