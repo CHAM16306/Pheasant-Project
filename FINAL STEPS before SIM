@@ -1,0 +1,22 @@
+#Separate thinfilter.recode.vcf into Malaysian and Mountain pop
+
+#For Malaysian
+````
+/Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --indv PHE080 --indv PHE081 --indv PHE082 --indv PHE083 --indv PHE084 --indv PHE085 --indv PHE086 --indv PHE087 --indv PHE112 --indv PHE100 --indv PHE126 --indv PHE127 --indv PHE133 --indv PHE134 --indv PHE139 --indv PHE140 --indv PHE145 --indv PHE146 --indv PHE147 --indv PHE148 --indv PHE156 --indv PHE157 --indv PHE160 --vcf thinfilter.recode.vcf --recode --recode-INFO-all --out Malaysian
+
+Keeping individuals in 'keep' list
+After filtering, kept 20 out of 63 Individuals
+Outputting VCF file...
+After filtering, kept 5802 out of a possible 5802 Sites
+Run Time = 1.00 seconds
+````
+#Put into r
+
+````
+path_to_file2 <- "/Users/aminachabach/Project/vcftools_0.1.13/Malaysian.recode.vcf"
+malayphe <- read.pcadapt(path_to_file2, type = "vcf")
+````
+
+
+
+
