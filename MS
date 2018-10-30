@@ -1,0 +1,33 @@
+
+## Install MS
+# https://uchicago.app.box.com/s/l3e5uf13tikfjm7e1il1eujitlsjdx13/file/245767962834
+
+````
+eduroam-125-46:vcftools_0.1.13 aminachabach$ cd /Users/aminachabach/Project/vcftools_0.1.13/msdir
+eduroam-125-46:msdir aminachabach$ gcc -o ms ms.c streec.c rand1.c -lm
+````
+#Basic test command line: ms nsam nreps -t θ
+#We need to used the path to the black terminal thing instead of the ms command (not found)
+
+````
+eduroam-125-46:msdir aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/msdir/ms 4 2 -t 5.0
+/Users/aminachabach/Project/vcftools_0.1.13/msdir/ms 4 2 -t 5.0 
+63867
+
+//
+segsites: 12
+positions: 0.0849 0.1518 0.2293 0.3353 0.5368 0.5391 0.5771 0.5847 0.6145 0.6325 0.6685 0.7274 
+100110001100
+010100001100
+001001110011
+100100001100
+
+//
+segsites: 5
+positions: 0.0066 0.1322 0.3833 0.6600 0.7786 
+00111
+10111
+00111
+01000
+`````
+
