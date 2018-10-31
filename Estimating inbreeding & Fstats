@@ -1,0 +1,213 @@
+
+#PCA for rad data
+````
+install.packages("pcadapt")
+library(pcadapt)
+
+path_to_file <-("/Users/aminachabach/Project/vcftools_0.1.13/thinfilter.recode.vcf")
+filename <- read.pcadapt(path_to_file, type = "vcf")
+x <- pcadapt(input = filename, K = 20) 
+plot(x, option = "screeplot", K = 10)
+
+poplist.csv <- read.csv("/Users/aminachabach/Project/pheasantpops2.csv", header=TRUE)
+head(poplist.csv)
+poplist.names <-poplist.csv[,7]
+str(poplist.names)
+plot(x, option = "scores", pop = poplist.names)
+````
+
+
+#use pdg spider to convert vcf to STRUCTURE
+#read into R
+#add .str when making the output file
+#Make sure you're in the right directory (go to session and then set directory)
+#data converted from structure to genid object
+
+````
+phedata <- read.structure("phedata.stru")
+
+How many genotypes are there? 
+63
+
+How many markers are there? 
+5802
+
+Which column contains labels for genotypes ('0' if absent)? 
+1
+
+Which column contains the population factor ('0' if absent)? 
+2
+
+Which other optional columns should be read (press 'return' when done)? 
+1: 
+
+Which row contains the marker names ('0' if absent)? 
+1
+
+Are genotypes coded by a single row (y/n)? 
+n
+
+Converting data from a STRUCTURE .stru file to a genind object... 
+
+`````
+
+
+````
+phedata
+
+/// GENIND OBJECT /////////
+
+ // 63 individuals; 5,802 loci; 11,644 alleles; size: 5.9 Mb
+
+ // Basic content
+   @tab:  63 x 11644 matrix of allele counts
+   @loc.n.all: number of alleles per locus (range: 2-4)
+   @loc.fac: locus factor for the 11644 columns of @tab
+   @all.names: list of allele names for each locus
+   @ploidy: ploidy of each individual  (range: 2-2)
+   @type:  codom
+   @call: read.structure(file = "phedata.stru")
+
+ // Optional content
+   @pop: population of each individual (group size range: 63-63)
+   
+`````
+
+
+
+###BETTER WAY TO DO IT (Fst heatmap?? & FST STAT)
+
+````
+path_to_file2 <- "/Users/aminachabach/Project/vcftools_0.1.13/Malaysian.recode.vcf"
+malayphe <- read.pcadapt(path_to_file2, type = "vcf")
+
+
+path_to_file3 <- "/Users/aminachabach/Project/vcftools_0.1.13/mountain.recode.vcf"
+mountyphe <- read.pcadapt(path_to_file3, type = "vcf")
+
+library(adegenet)
+library(hierfstat)
+read.fstat
+#go to tool and install reshape
+library(reshape)
+
+#created a genind object - PAUSE and fill in required data before continuing
+#Use the pathway and add .stru at the end (created with pgd spider)
+
+MT <- read.structure("/Users/aminachabach/Project/vcftools_0.1.13/msdir/MT.stru") 
+MA <- read.structure("/Users/aminachabach/Project/vcftools_0.1.13/msdir/MA.stru") 
+
+#Excel csv table with species etc
+MT.names <- read.csv("/Users/aminachabach/Project/mountain.csv")
+MA.names <- read.csv("/Users/aminachabach/Project/malaysian.csv")
+
+MT.factor <- as.factor(MT.names$SPECIES)
+MT@pop <- MT.factor #creates additional column in MT which is the species names
+hier.MT <- genind2hierfstat(MT)
+MT.fst <- pairwise.fst(MT, pop=NULL, res.type=c("dist", "matrix")) #takes a while to execute
+
+MA.factor <- as.factor(MA.names$SPECIES)
+MA@pop <- MA.factor #creates additional column in MA which is the species names
+hier.MA <- genind2hierfstat(MA)
+
+MA.fst <- pairwise.fst(MA, pop=NULL, res.type=c("dist", "matrix")) #takes a while to execute
+
+m.MT <- as.matrix(MT.fst)
+m2.MT <- melt(m.MT)[melt(upper.tri(m.MT))$value,]
+names(m2.MT)<- c("c1","c2", "distance")
+
+#Install gplots
+# Don't think we even needed to do all this
+library(gplots)
+shadesOfGrey <- colorRampPalette(c("grey100", "grey0"))
+
+#ERROR at this point but we realised we don't need a heatmap anyway
+(
+Dend <- read.table("/Users/aminachabach/Project/mountain.csv", header=T) 
+Dend.col <- read.table("WPAcol.names", header=T) #pulls in the colours for use in the heatmap, from a file that only has a column of species and their corresponding colours (made by making copy of WPA.names and then editing in Excel)
+Dend.col <- as.vector(Dend.col$colour) #chooses only to colors column of Dend.col and makes it into a vector for use in the heatmap
+
+Dend.col.species <- read.table("WPAcol.names", header=T) #pulls out just the species for use in the labels of the heatmap
+Dend.col.species <- Dend.col.species$species #pulls out just the species for use in the labels of the heatmap
+heatmap.2(as.matrix(SEall.fst), trace="none", RowSideColors=Dend.col, ColSideColors=Dend.col, col=shadesOfGrey, labRow=Dend.col.species, labCol=F, key.ylab=NA, key.xlab=NA, key.title="Fst Colour Key", keysize=0.9, main="Pairwise FST 69 individuals, 2049 loci") #creates a heatmap with a key, which is being cut off. No fix as of yet.
+)
+
+#FST values
+
+library(adegenet)
+library(hierfstat)
+library(reshape)
+
+#We've already done all thsi for the heatmap:
+#SEall.132 <- read.structure("WPA47_structure.stru")
+#pop.factor <- as.factor(WPA.names$species)
+#SEall.132@pop <- pop.factor #creates additional column in SEall.132 which is the species names
+#hier.SEall <- genind2hierfstat(SEall.132)
+
+
+#To make a histogram of per locus FST
+
+stats.MT <- basic.stats(hier.MT)
+stats.MT.perlocus <- stats.MT$perloc
+hist(stats.MT.perlocus$Fst, xlim=c(-0.2, 1.0), ylim=c(0,800), xlab="Per locus FST", breaks=50, main="Histogram of FST per locus for MT")
+
+stats.MA <- basic.stats(hier.MA)
+stats.MA.perlocus <- stats.MA$perloc
+hist(stats.MA.perlocus$Fst, xlim=c(-0.2, 1.0), ylim=c(0,800), xlab="Per locus FST", breaks=50, main="Histogram of FST per locus for MA")
+
+#To get Fst and Fis values for an entire genind object
+basic.stats(MT)  
+#$overall
+#Ho     Hs     Ht    Dst    Htp   Dstp    Fst   Fstp    Fis   Dest 
+#0.0640 0.0689 0.0700 0.0011 0.0683 0.0031 0.0160 0.0453 0.0707 0.0033 
+
+wc(MT)
+#$FST [1] 0.03075914
+#$FIS [1] 0.04519208
+
+##ERROR:Problem with genind object??
+basic.stats(MA)  
+wc(MA)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
