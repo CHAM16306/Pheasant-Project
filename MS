@@ -1,5 +1,5 @@
 
-## Install MS
+## Install MS in terminal
 # https://uchicago.app.box.com/s/l3e5uf13tikfjm7e1il1eujitlsjdx13/file/245767962834
 
 ````
@@ -30,4 +30,44 @@ positions: 0.0066 0.1322 0.3833 0.6600 0.7786
 00111
 01000
 `````
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
