@@ -1,0 +1,152 @@
+#Install scrm (tools) and library
+library(scrm)
+
+#Paul R. Staab, Sha Zhu, Dirk Metzler and Gerton Lunter. scrm: efficiently simulating long sequences using the approximated coalescent with recombination. Bioinformatics (2015) 31 (10): 1680-1682. doi:10.1093/bioinformatics/btu861.
+
+
+
+##Example in scrm manual
+
+set.seed(789)
+# 5 Chromosomes with 100 bases each with recombination and mutation
+# 1 = 1 locus?
+#number after letter designates rate
+sum_stats <- scrm('5 1 -r 3.1 100 -t 1.5 -T -L')
+
+#-r <R> <L>: Set the recombination rate to R = 4N0r and the length of all loci to L base pairs. r is expected number of recombinations on the locus per generation.
+#-t < $\theta$ >: Set the mutation rate to θ=4N0u, where u is the neutral mutation rate per locus. If this options is given, scrm generates the segregating sites output.
+#-T: Print the local genealogies in newick format.
+#-L: Print the TMRCA and the local tree length for each segment (behaves different to ms). Both values are scaled in coalescent time units, e.g. in 4 * N0 generations
+
+str(sum_stats)
+# Simulate the site frequency spectrum at 3 loci. For each locus
+# 10 Chromosomes of 1Mb length are sampled from two populations with
+# migration inbetween.
+
+scrm('10 3 -r 400 1000000 -l 100000 -I 2 4 6 0.5 -t 300 -oSFS')$sfs
+#10 chrom; 3 loci; 1000000 bases approximated (l) to 100000; 
+#use island model of 2 populations of 4 to haplotypes with migration rate of 0.5
+#mutation rate of 300
+
+
+#-l <l>: Use approximation rather than simulating the exact ARG. Within a sliding window of length l base pairs all linkage information is considered when building the genealogy. To positions outside of this window, some linkage is ignored. Setting l=0 produces the SMC’ and l=-1 deactivates the approximation. 
+#Ancestral Recombination Graph (ARG) 
+#-I <npop> <s1> ... <sn> [<M>]: Use an island model with npop populations, where s1 to sn haplotypes are sampled from population 1 to n, respectively. Optionally assume a symmetric migration rate of M.
+#-M <M>: Assume a symmetric migration rate of M/(npop-1).
+#-oSFS: Print the site frequency spectrum. Requires that the mutation rate θ is given with the ‘-t’ option.
+
+
+
+
+
+##Simulating trees for apes
+#First, we call scrm to simulate the ARG:
+sum_stats <- scrm('5 1 -r 1.5 100 -T')
+sum_stats$trees[[1]]
+
+#Now we can convert the trees into ape’s internal format using read.tree:
+library(ape)
+trees <- read.tree(text = paste0(sum_stats$trees[[1]]))
+trees
+#And – for example – print the trees:
+plot(trees, no.margin = TRUE)
+
+
+scrm('80 5 -r 0 100 -t 4.6*10^-9', file = "structure")
+example1 <- scrm('80 5 -r 0 100 -t 4.6*10^-9 ')
+#80 chrom, 5 loci, 0 recombination, 100 bases, theta = mutation rate
+str(example1)
+
+
+
+
+scrm ('1000 1 -t 1.33*10^-9 -eN 0 500 -eN 50 5 -eN 100 1000 -eG 50 0.096478 ', file = "test.stru")
+
+#nhap=1000 bc our effective pop size (N0) is 500 (nhap=total number of haplotypes)
+#nrep is the number of independent loci that will be produced =1
+#simulation for the population: 80 chrom (here assumes haploid) across the pop = 160 (diploid)
+#exponential growth rate for 5 founder pop (Ns), 500 end pop (N0) over 50 generations (50 years) =  0.096478
+#mutation rate = 1.33*10^-9
+#-en <t> <i> <n>: Set the size of population i to _n*N0_ at time t.
+#-eG <t> <a>: Set the exponential growth rate of all populations to a at time t.
+#each block of data is a locus (what is the benefit of doing multiple loci?)
+#one locus enough!
+
+#read in as populations but know that it is different simulations
+
+#shuffle and read in as structure (indivual coded by two lines to get diploidy)
+#file in r 
+
+
+
+
+
+
+
+
+
+##Read in the SCR output and reshuffle it
+
+
+
+read.structure("/Users/aminachabach/Documents/University_2018_Yr3/Project/Project Y3/test.stru")
+
+ How many genotypes are there? 
+500 (bc 1000 haploid so 500 diploid)
+
+ How many markers are there? 
+3180 (look at number of seg_sites)
+
+ Which column contains labels for genotypes ('0' if absent)? 
+0
+
+ Which column contains the population factor ('0' if absent)? 
+0
+
+ Which other optional columns should be read (press 'return' when done)? 
+1: 
+
+ Which row contains the marker names ('0' if absent)? 
+0
+
+ Are genotypes coded by a single row (y/n)? 
+n
+
+
+
+test <- read.table("/Users/aminachabach/Documents/University_2018_Yr3/Project/Project Y3/test.stru")
+dim(test)
+#1000 observations of one variable
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
