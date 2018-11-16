@@ -1,0 +1,91 @@
+
+#First we vdescribed our variables:
+nhap=1000 #nhap/2=N0
+nrep=10
+bp=1000000
+T1=50/(4*(nhap/2)) #time at bottleneck
+N1=5 #pop at bottlneck
+N2=10000 #ancestral pop
+G=-(1/T1)*log10(N1/(nhap/2)) #exponential growth rate after bottleneck
+T2= 100/(4*N2) #ancestral time
+a2=0 #exponential/constant growth rate in ancestral pop
+theta0=4*(nhap/2)*(1.33*10^-9)*bp
+p=N1/N2 #pop proportion at bottleneck (bottleneck/ancestral pop)
+
+
+
+
+
+
+Fh = matrix(ncol = nrep,nrow=b/2)
+for(a in 1:nrep)
+{
+  command = paste(nhap, nrep, "-t",theta0, "-G",G, "-eN",T1,p, "-eG",T2,a2)
+  scrm.data<-scrm(command, file="test1")
+  write.table(scrm.data, file = paste("tabledata",a, ".txt",sep = ""))
+  
+  
+  scrm.df=as.data.frame(scrm.data)
+
+  shuffled.data <- scrm.df[sample(nrow(scrm.df)),]
+  shuffled.matrix <- data.matrix(shuffled.data, rownames.force = NA)
+  diploid.data <- rowsum(shuffled.matrix, as.integer(gl(nrow(shuffled.matrix), 2, nrow(shuffled.matrix))))
+  named.diploid <- ifelse(diploid.data %% 2 == 0,"Hom","Het")
+  
+  
+  Hom_per_row = numeric()
+  for (i in 1:b/2)
+  {
+    Hom_per_row[i] = sum(str_count(named.diploid[i,], "Hom"))
+  }
+  
+  
+  n.loci <- ncol(shuffled.data)
+  hom00 <- sum(str_count(diploid.data, "0")) #nbr of homozygotes 00
+  hom11 <- sum(str_count(diploid.data, "2")) #nbr of homozygotes 11
+  het01 <- sum(str_count(diploid.data, "1")) #nbr of heterozygotes 01
+  
+  
+  Hom_per_col = numeric()
+  maf = numeric()
+  EHom = numeric()
+  for (i in 1:n.loci)
+  {
+    Hom_per_col[i] = sum(str_count(shuffled.matrix[,i], "1"))
+    maf[i]=Hom_per_col[i]/b
+    EHom[i]=1-2*maf[i]*(1-maf[i])
+  }
+  
+  EHom
+  SEHom = sum(EHom) 
+  SOHom = hom0 + hom2 
+  
+  Fh[,a]= (Hom_per_row-SEHom)/(m-SEHom)
+  
+}
+Fh
+
+
+mean.Fh=rowMeans(Fh)
+library(Rfast)
+var.Fh=rowVars(Fh)
+
+
+hist(Fh[,1])
+hist(Fh[,1],freq=F)
+lines(density(Fh))
+lines(density(Fh[,1]))
+lines(density(Fh[,1]),col=2)
+Hom_per_row-SEHo
+
+
+
+library(locfit)
+
+fit=locfit(~mean.Fh)
+plot(fit)
+abline(v=0,lty=2)
+
+
+
+
