@@ -1,15 +1,15 @@
 
 #First we vdescribed our variables:
-nhap=1000 #nhap/2=N0
-nrep=10
+nhap=1000 #number of samples i.e. number of pheasante in real data?
+nrep=1 #min 100, 1000 if fast enough
 bp=1000000
-T1=50/(4*(nhap/2)) #time at bottleneck
+N0=500
+T1=50/(4*(N0)) #time at bottleneck
 N1=5 #pop at bottlneck
 N2=10000 #ancestral pop
-G=-(1/T1)*log10(N1/(nhap/2)) #exponential growth rate after bottleneck
-T2= 100/(4*N2) #ancestral time
+G=-(1/T1)*log(N1/(N0)) #exponential growth rate after bottleneck
 a2=0 #exponential/constant growth rate in ancestral pop
-theta0=4*(nhap/2)*(1.33*10^-9)*bp
+theta0=4*(N0)*(1.33*10^-9)*bp
 p=N1/N2 #pop proportion at bottleneck (bottleneck/ancestral pop)
 
 
@@ -20,11 +20,11 @@ p=N1/N2 #pop proportion at bottleneck (bottleneck/ancestral pop)
 Fh = matrix(ncol = nrep,nrow=b/2)
 for(a in 1:nrep)
 {
-  command = paste(nhap, nrep, "-t",theta0, "-G",G, "-eN",T1,p, "-eG",T2,a2)
+  command = paste(nhap, 1, "-t",theta0, "-G",G, "-eN",T1,p, "-eG",T1,a2)
   scrm.data<-scrm(command, file="test1")
   write.table(scrm.data, file = paste("tabledata",a, ".txt",sep = ""))
   
-  
+  scrm.data
   scrm.df=as.data.frame(scrm.data)
 
   shuffled.data <- scrm.df[sample(nrow(scrm.df)),]
