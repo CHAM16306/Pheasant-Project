@@ -1,72 +1,83 @@
+library(scrm)
+library(stringr)
+library(locfit)
+
+
+
 
 #First we vdescribed our variables:
-nhap=1000 #number of samples i.e. number of pheasante in real data?
-nrep=1 #min 100, 1000 if fast enough
+nhap=1000#number of samples i.e. number of pheasante in real data?
+nrep=100 #min 100, 1000 if fast enough
 bp=1000000
 N0=500
 T1=50/(4*(N0)) #time at bottleneck
 N1=5 #pop at bottlneck
 N2=10000 #ancestral pop
-G=-(1/T1)*log(N1/(N0)) #exponential growth rate after bottleneck
+G=-(1/T1)*log10(N1/(N0)) #exponential growth rate after bottleneck
 a2=0 #exponential/constant growth rate in ancestral pop
-theta0=4*(N0)*(1.33*10^-9)*bp
+theta0=4*(N0)*(1.33*10^-9)*bp #with 1.33*10^-9 = mutationrate per yer (=generation) per locus
 p=N1/N2 #pop proportion at bottleneck (bottleneck/ancestral pop)
 
 
 
-
-
-
-Fh = matrix(ncol = nrep,nrow=b/2)
-for(a in 1:nrep)
+Fh = matrix(ncol = nrep,nrow=nhap/2) #make columns for each iteration, with the number of rows = nbr of inividuals
+for(a in 1:nrep) #loop it nrep times
 {
   command = paste(nhap, 1, "-t",theta0, "-G",G, "-eN",T1,p, "-eG",T1,a2)
   scrm.data<-scrm(command, file="test1")
-  write.table(scrm.data, file = paste("tabledata",a, ".txt",sep = ""))
+  write.table(scrm.data, file = paste("tabledata",a, ".txt",sep = "")) #write a table for each loop and paste file in directory
   
-  scrm.data
-  scrm.df=as.data.frame(scrm.data)
+  scrm.df=as.data.frame(scrm.data) #coerce to class data.frame
 
-  shuffled.data <- scrm.df[sample(nrow(scrm.df)),]
-  shuffled.matrix <- data.matrix(shuffled.data, rownames.force = NA)
-  diploid.data <- rowsum(shuffled.matrix, as.integer(gl(nrow(shuffled.matrix), 2, nrow(shuffled.matrix))))
-  named.diploid <- ifelse(diploid.data %% 2 == 0,"Hom","Het")
+  shuffled.data <- scrm.df[sample(nrow(scrm.df)),] #shuffle the rows
+  shuffled.matrix <- data.matrix(shuffled.data, rownames.force = NA) #Convert a Data Frame to a Numeric Matrix
+  diploid.data <- rowsum(shuffled.matrix, as.integer(gl(nrow(shuffled.matrix), 2, nrow(shuffled.matrix)))) #combine 2 rows into 1 (haploid into diploid)
+  named.diploid <- ifelse(diploid.data %% 2 == 0,"Hom","Het") #if dividable by 2 and remainder 0, then name "Hom", if not name "Het"
   
   
-  Hom_per_row = numeric()
-  for (i in 1:b/2)
+  Hom_per_row = numeric() #Homozygosity per colum by counting the "Hom"s
+  for (i in 1:nhap/2)
   {
     Hom_per_row[i] = sum(str_count(named.diploid[i,], "Hom"))
   }
   
   
-  n.loci <- ncol(shuffled.data)
+  n.loci <- ncol(shuffled.matrix)
   hom00 <- sum(str_count(diploid.data, "0")) #nbr of homozygotes 00
   hom11 <- sum(str_count(diploid.data, "2")) #nbr of homozygotes 11
   het01 <- sum(str_count(diploid.data, "1")) #nbr of heterozygotes 01
   
   
-  Hom_per_col = numeric()
-  maf = numeric()
-  EHom = numeric()
+  Mut_per_col = numeric() #Homozygosity per column
+  maf = numeric() #allele frequency
+  EHom = numeric() #Expected Homozygosity
   for (i in 1:n.loci)
   {
-    Hom_per_col[i] = sum(str_count(shuffled.matrix[,i], "1"))
-    maf[i]=Hom_per_col[i]/b
-    EHom[i]=1-2*maf[i]*(1-maf[i])
+    Mut_per_col[i] = sum(str_count(shuffled.matrix[,i], "1")) #count all the 1 (=mutation, whereas 0 are the ancestral state) for each segsite
+    maf[i]=Mut_per_col[i]/nhap #number of hom per column, divided by total number of rows (2*individuals)
+    EHom[i]=1-2*maf[i]*(1-maf[i]) 
   }
   
   EHom
-  SEHom = sum(EHom) 
-  SOHom = hom0 + hom2 
-  
-  Fh[,a]= (Hom_per_row-SEHom)/(m-SEHom)
-  
+  SEHom = sum(EHom) #sum of expected homozygosity
+  SOHom = hom0 + hom2  #sum of observed homozygosity
+
+  Fh[,a]= (Hom_per_row-SEHom)/(n.loci-SEHom) #Fh as proxy for inbreeding
+ 
 }
 Fh
 
 
-mean.Fh=rowMeans(Fh)
+mean.Fh=rowMeans(Fh) #mean Fh per inividual
+Fh.overall.5 =mean(mean.Fh) #mean population Fh=-0.001661848
+var.overall.5 = var(mean.Fh) #mean population Fh variance=0.1495276
+
+
+fit=locfit(~mean.Fh) #~x for a density estimation model
+plot(fit) #x=mean.Fh and automatically: density on y
+abline(v=0,lty=2) #line to show the mean Fh for the real pheasant data
+
+
 library(Rfast)
 var.Fh=rowVars(Fh)
 
@@ -80,11 +91,13 @@ Hom_per_row-SEHo
 
 
 
-library(locfit)
-
-fit=locfit(~mean.Fh)
-plot(fit)
-abline(v=0,lty=2)
 
 
+
+##################################################################################################################
+#Gene diversity = Expected heterozygosity
+
+Global.EHom =prod(EHom) #multiplying EHom per loci to get global EHom
+Global.EHet = 1-Global.EHom
+Global.EHet
 
