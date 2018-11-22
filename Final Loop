@@ -2,14 +2,19 @@ library(scrm)
 library(stringr)
 library(locfit)
 
+#Kardos et al. 2015. He describes two measures of homozygosity - one where you look only at the minor allele frequency, and one where you look at both the minor and major alleles across the population. Kardos et al. 2015 (and everyone who uses PLINK to calculate homozygosity) uses the prior method: 
+#sum of (1-2p(1-p))
+#where p is the minor allele frequency at locus 1 across the whole population. 
+
 
 
 
 #First we vdescribed our variables:
-nhap=1000#number of samples i.e. number of pheasante in real data?
-nrep=100 #min 100, 1000 if fast enough
+nhap=44#2*number of samples i.e. number of pheasante in real data (bc diploid) 
+#2 seperate simulations, one for malaysian (20 indv) and mountain (22 indv)
+nrep=10#min 100, 1000 if fast enough
 bp=1000000
-N0=500
+N0=500 #effective population ≠ census size, mention in report!
 T1=50/(4*(N0)) #time at bottleneck
 N1=5 #pop at bottlneck
 N2=10000 #ancestral pop
@@ -19,16 +24,35 @@ theta0=4*(N0)*(1.33*10^-9)*bp #with 1.33*10^-9 = mutationrate per yer (=generati
 p=N1/N2 #pop proportion at bottleneck (bottleneck/ancestral pop)
 
 
+#mimic real data
+#if  this happens (object has no variables), do heterozygosity
+#with small seq by chance th eprobabilty of having a varient is v low ( all indv the same) 
+
+
 
 Fh = matrix(ncol = nrep,nrow=nhap/2) #make columns for each iteration, with the number of rows = nbr of inividuals
+#Fh calculated with only minor allele frequency (see Keller et al.)
+G.EHet= matrix(nrow = nrep) #Global heterozygosity (Rita's formula)
+
 for(a in 1:nrep) #loop it nrep times
 {
   command = paste(nhap, 1, "-t",theta0, "-G",G, "-eN",T1,p, "-eG",T1,a2)
   scrm.data<-scrm(command, file="test1")
   write.table(scrm.data, file = paste("tabledata",a, ".txt",sep = "")) #write a table for each loop and paste file in directory
   
+ 
   scrm.df=as.data.frame(scrm.data) #coerce to class data.frame
-
+  
+  if(dim(scrm.df)[2]==0){ #bc low mutation rate sometimes no variants; to avoid this, tell loop to make G.EHet and Fh equal 0 if the dimensions of the columns [2] of scrm.df are 0 (bc if dim = 0 that means no diversity which means there is no heterozygosity, only homozygosity)
+    
+    G.EHet[a]<-0 #conditions
+    Fh[,a]<-0
+    
+    
+  }
+  
+  else{#if the dim ≠ 0 then just rin loop normally
+    
   shuffled.data <- scrm.df[sample(nrow(scrm.df)),] #shuffle the rows
   shuffled.matrix <- data.matrix(shuffled.data, rownames.force = NA) #Convert a Data Frame to a Numeric Matrix
   diploid.data <- rowsum(shuffled.matrix, as.integer(gl(nrow(shuffled.matrix), 2, nrow(shuffled.matrix)))) #combine 2 rows into 1 (haploid into diploid)
@@ -42,7 +66,7 @@ for(a in 1:nrep) #loop it nrep times
   }
   
   
-  n.loci <- ncol(shuffled.matrix)
+  n.loci <- ncol(shuffled.matrix) #number of loci (i.e. segsites)
   hom00 <- sum(str_count(diploid.data, "0")) #nbr of homozygotes 00
   hom11 <- sum(str_count(diploid.data, "2")) #nbr of homozygotes 11
   het01 <- sum(str_count(diploid.data, "1")) #nbr of heterozygotes 01
@@ -54,28 +78,64 @@ for(a in 1:nrep) #loop it nrep times
   for (i in 1:n.loci)
   {
     Mut_per_col[i] = sum(str_count(shuffled.matrix[,i], "1")) #count all the 1 (=mutation, whereas 0 are the ancestral state) for each segsite
-    maf[i]=Mut_per_col[i]/nhap #number of hom per column, divided by total number of rows (2*individuals)
+    
+    maf[i]=Mut_per_col[i]/nhap #number of hom per column, divided by total number of rows (2*individuals), so maf per loci
     EHom[i]=1-2*maf[i]*(1-maf[i]) 
   }
   
   EHom
   SEHom = sum(EHom) #sum of expected homozygosity
-  SOHom = hom0 + hom2  #sum of observed homozygosity
+  SOHom = hom00 + hom11  #sum of observed homozygosity
 
   Fh[,a]= (Hom_per_row-SEHom)/(n.loci-SEHom) #Fh as proxy for inbreeding
  
-}
+  
+  rows= nrow(shuffled.matrix)
+  cols=ncol(shuffled.matrix)
+  total.sites = rows*cols #is the total number of sites needed for the caclulation of the gene diversity
+  
+  
+  
+  G.Mut_per_col = numeric() #number of allele 1 per column
+  G.maf = numeric() #major allele frequency ratio = number of 1 divided by total number of alleles = p (because ratio)
+  G.Min.mut_per_col=numeric() ##number of allele 0 per column
+  G.min.af = numeric() #minor allele frequency ratio = number of 0 divided by total number of alleles =p
+  G.total.allele.freq=numeric() #sum of p^2 (individual observed homozygosity)
+  for (i in 1:n.loci)
+  {
+    G.Mut_per_col[i] = sum(str_count(shuffled.matrix[,i], "1")) #count all the 1 (=mutation, whereas 0 are the ancestral state) for each segsite
+    G.maf[i]=G.Mut_per_col[i]/nhap #number of hom per column, divided by total number of rows (2*individuals), so maf per loci
+    G.Min.mut_per_col[i] = sum(str_count(shuffled.matrix[,i], "0")) #count all the 0 (=mutation, whereas 0 are the ancestral state) for each segsite
+    G.min.af[i] = G.Min.mut_per_col[i]/nhap
+    G.total.allele.freq[i]=  (G.maf[i])^2+ (G.min.af[i])^2 #sum of p^2
+    
+    G.EHet[a] =1-(sum(G.total.allele.freq[i])/ total.sites) #Global heterozygosity = 1-sum of the sum of the indv. obsv. homo. divided by total number of sites
+    
+  }
+  
+  
+  
+  }
+  }
+
 Fh
+G.EHet
+
+
 
 
 mean.Fh=rowMeans(Fh) #mean Fh per inividual
+mean.Fh
 Fh.overall.5 =mean(mean.Fh) #mean population Fh=-0.001661848
+
 var.overall.5 = var(mean.Fh) #mean population Fh variance=0.1495276
+
 
 
 fit=locfit(~mean.Fh) #~x for a density estimation model
 plot(fit) #x=mean.Fh and automatically: density on y
 abline(v=0,lty=2) #line to show the mean Fh for the real pheasant data
+
 
 
 library(Rfast)
@@ -87,17 +147,7 @@ hist(Fh[,1],freq=F)
 lines(density(Fh))
 lines(density(Fh[,1]))
 lines(density(Fh[,1]),col=2)
+
 Hom_per_row-SEHo
 
-
-
-
-
-
-##################################################################################################################
-#Gene diversity = Expected heterozygosity
-
-Global.EHom =prod(EHom) #multiplying EHom per loci to get global EHom
-Global.EHet = 1-Global.EHom
-Global.EHet
 
