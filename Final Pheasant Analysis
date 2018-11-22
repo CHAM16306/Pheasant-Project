@@ -1,0 +1,110 @@
+
+library(pcadapt)
+library(locfit)
+
+path_to_file2 <- "/Users/aminachabach/Project/vcftools_0.1.13/Malaysian.recode.vcf"  #Malaysian filtered vcf file
+malayphe <- read.pcadapt(path_to_file2, type = "vcf")
+malayphe
+path_to_file3 <- "/Users/aminachabach/Project/vcftools_0.1.13/mountain.recode.vcf"  #Mountain filtered vcf file
+mountyphe <- read.pcadapt(path_to_file3, type = "vcf")
+
+#calculate the observed homozygosity in terminal with '/Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --vcf mountain.recode.vcf --het'
+
+malay.het.table=read.table("/Users/aminachabach/Project/vcftools_0.1.13/malay.out.het", header = TRUE) #read terminal output into r as a table
+mount.het.table=read.table("/Users/aminachabach/Project/vcftools_0.1.13/mount.out.het", header = TRUE)
+
+
+mount.het.table
+malay.ohom.df = as.data.frame(malay.het.table$O.HOM.) #write table to dataframe so it's not a list and we can select values separately
+mount.ohom.df = as.data.frame(mount.het.table$O.HOM.)
+r.malay= nrow(malay.het.table)  #number of rows (i.e. number of individuals for the malaysain pop)
+r.mount= nrow(mount.het.table)
+
+malay.ohom.ratio = malay.ohom.df/5802
+mount.ohom.ratio = mount.ohom.df/5802
+
+malay.ehom.df = as.data.frame(malay.het.table$E.HOM.) #write table to dataframe so it's not a list and we can select values separately
+mount.ehom.df = as.data.frame(mount.het.table$E.HOM.)
+
+malay.ehom.ratio = malay.ehom.df/5802
+mount.ehom.ratio = mount.ehom.df/5802
+
+sum.malay.ehom = sum(malay.ehom.ratio)
+sum.mount.ehom = sum(mount.ehom.ratio)
+
+Fh.malay = matrix(ncol = 1, nrow= r.malay) #loop with one column and nbr of indv rows of Fh values
+for (i in 1:r.malay)
+{
+  Fh.malay[i]= (malay.ohom.ratio[i,] - sum.malay.ehom)/(5802 - sum.malay.ehom) #5802 bc that's the number of loci in the dataset
+}
+
+Fh.malay
+mean.Fh.malay=mean(Fh.malay) 
+var(Fh.malay)
+#expected much higher than observed homozygosity
+
+Fh.mount= matrix(ncol = 1, nrow= r.mount)
+for (i in 1:r.mount)
+{
+  Fh.mount[i]= (mount.ohom.ratio[i,] - sum.mount.ehom)/(5802 - sum.mount.ehom) #Fh as proxy for inbreeding
+}
+Fh.mount
+mean.Fh.mount=mean(Fh.mount)
+var(Fh.mount)
+
+hist(Fh.mount)
+
+
+malay.fit=locfit(~Fh.malay) #~x for a density estimation model
+line=plot(malay.fit) #x=mean.Fh and automatically: density on y
+#abline(v=0,lty=2) #line to show the mean Fh for the real pheasant data
+
+
+mount.fit=locfit(~Fh.mount) #~x for a density estimation model
+plot(mount.fit) #x=mean.Fh and automatically: density on y
+#abline(v=0,lty=2) #line to show the mean Fh for the real pheasant data
+lines(malay.fit,col="green")
+
+plot(Fh.malay)
+plot(d)
+
+
+d <- density(Fh.malay) # returns the density data 
+d2 <- density(Fh.mount)
+plot(range(d$x, d2$x), range(d$y, d2$y), type = "n", xlab = "Fh", ylab = "Density")
+lines(d, col = "red")
+lines(d2, col = "blue")
+
+
+
+plot(d1)
+
+d1 = locfit(~Fh.malay)
+f= locfit(~Fh.mount)
+plot(d1, xlab="Fh", ylab="density", xlim=c(-10^-6,-10^-4), col="red") # change the values for xlim
+#change the xlim so it's closer to the data limits
+lines(f, col="blue")
+
+hist(Fh.malay)
+
+
+
+
+##################################################################################################################
+#Gene diversity = Expected heterozygosity
+     
+Global.malay.EHom.phe =prod(malay.ehom.ratio)/(5802*20) #multiplying all EHoms per loci with each other to get global EHom
+Global.malay.EHet.phe = 1-Global.malay.EHom.phe #EHom + EHet = 1, so to calculate EHet from EHom...
+Global.malay.EHet.phe
+
+
+
+Global.mount.EHom.phe =prod(mount.ehom.ratio)/(5802*22) #multiplying all EHoms per loci with each other to get global EHom
+Global.mount.EHet.phe = 1-Global.mount.EHom.phe #EHom + EHet = 1, so to calculate EHet from EHom...
+Global.mount.EHet.phe
+
+
+
+
+
+
