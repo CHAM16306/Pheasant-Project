@@ -12,23 +12,21 @@ library(locfit)
 #First we vdescribed our variables:
 nhap=44#2*number of samples i.e. number of pheasante in real data (bc diploid) 
 #2 seperate simulations, one for malaysian (20 indv) and mountain (22 indv)
-nrep=10#min 100, 1000 if fast enough
+nrep=1000#min 100, 1000 if fast enough
 bp=1000000
 N0=500 #effective population ≠ census size, mention in report!
 T1=50/(4*(N0)) #time at bottleneck
-N1=5 #pop at bottlneck
-N2=10000 #ancestral pop
-G=-(1/T1)*log10(N1/(N0)) #exponential growth rate after bottleneck
+N1=20 #pop at bottlneck
+N2=150000 #ancestral pop
+G=-(1/T1)*log(N1/(N0)) #exponential growth rate after bottleneck
 a2=0 #exponential/constant growth rate in ancestral pop
 theta0=4*(N0)*(1.33*10^-9)*bp #with 1.33*10^-9 = mutationrate per yer (=generation) per locus
 p=N1/N2 #pop proportion at bottleneck (bottleneck/ancestral pop)
-
+r 0 160000 #recombination rate
 
 #mimic real data
 #if  this happens (object has no variables), do heterozygosity
 #with small seq by chance th eprobabilty of having a varient is v low ( all indv the same) 
-
-
 
 Fh = matrix(ncol = nrep,nrow=nhap/2) #make columns for each iteration, with the number of rows = nbr of inividuals
 #Fh calculated with only minor allele frequency (see Keller et al.)
@@ -118,24 +116,182 @@ for(a in 1:nrep) #loop it nrep times
   }
   }
 
-Fh
-G.EHet
+
+#write about how x % of the simualations had no diversity (where Fh = 0, get rif pf these)
+
+
+
+##################################################################################################################
+#Plot Fh
+
+G.EHet.subset =subset(G.EHet, G.EHet [,1]!=0)
+
+#remember to not overwrite the mean.Fh.x
+mean.Fh.2=rowMeans(Fh) #mean Fh per inividual
+mean.Fh.4=rowMeans(Fh)
+mean.Fh.6=rowMeans(Fh)
+mean.Fh.8=rowMeans(Fh)
+mean.Fh.10=rowMeans(Fh)
+mean.Fh.20=rowMeans(Fh)
+mean.Fh.40=rowMeans(Fh)
+
+Fh.2=locfit(~mean.Fh.2) #~x for a density estimation model
+Fh.4=locfit(~mean.Fh.4) 
+Fh.6=locfit(~mean.Fh.6) 
+Fh.8=locfit(~mean.Fh.8) 
+Fh.10=locfit(~mean.Fh.10) 
+Fh.20=locfit(~mean.Fh.20) 
+Fh.40=locfit(~mean.Fh.40) 
+
+plot(Fh.2, xlab="Fh", ylab="density", ylim=c(0, 8.5), xlim=c(-0.4,0.4), col="firebrick2")
+lines(Fh.4, col="blue1")
+lines(Fh.6, col="green")
+lines(Fh.8, col="orange")
+lines(Fh.10, col="gray14")
+lines(Fh.20, col="purple")
+lines(Fh.40, col="deepskyblue")
+abline(v=mean.Fh.mount,lty=2) #line to show the mean Fh for the real pheasant data
+
+colours = c("firebrick2", "blue1", "green", "orange", "gray14", "purple", "deepskyblue")
+legend("topright", legend=c("Fh.2","Fh.4", "Fh.6","Fh.8","Fh.10","Fh.20","Fh.50"), col = colours, cex=0.8, fill= colours, bty="n")
+
+
+
+##################################################################################################################
+#Global Heterozygosity Plot
+
+
+#DO NOT OVERWRITE!!
+
+G.EHet.2 
+G.EHet.4
+G.EHet.6
+G.EHet.8
+G.EHet.10
+G.EHet.20 
+G.EHet.40
+
+G.EHet.2.mean=mean(G.EHet) 
+G.EHet.4.mean=mean(G.EHet) 
+G.EHet.6.mean=mean(G.EHet) 
+G.EHet.8.mean=mean(G.EHet) 
+G.EHet.10.mean=mean(G.EHet) 
+G.EHet.20.mean=mean(G.EHet)  
+G.EHet.40.mean=mean(G.EHet) 
+
+##
+
+var.G.EHet.2=var(G.EHet.2)
+var.G.EHet.4=var(G.EHet.4) 
+var.G.EHet.6=var(G.EHet.6) 
+var.G.EHet.8=var(G.EHet.8) 
+var.G.EHet.10=var(G.EHet.10) 
+var.G.EHet.20=var(G.EHet.20)  
+var.G.EHet.40=var(G.EHet.40) 
+
+
+y=c(G.EHet.2.mean, G.EHet.4.mean, G.EHet.6.mean, G.EHet.8.mean, G.EHet.10.mean, G.EHet.20.mean, G.EHet.40.mean)
+x=c(1,2,3,4,5,6,7)
+err=c(var.G.EHet.2.mean, var.G.EHet.4.mean, var.G.EHet.6.mean, var.G.EHet.8.mean, var.G.EHet.10.mean, var.G.EHet.20.mean, var.G.EHet.40.mean)
+
+colours2= c("blue", "red")
+
+lm.mount =lm(y ~ x)
+summary(lm.mount)
+#look at p value
+
+intercept =  0.62930 
+slope =  0.02068 
+
+
+plot(x, y, pch=19, ylab="Global Expected Heterozygosty", ylim=c(0.4,1.06), xaxt = "n", xlab='Founder size')
+arrows(x, y-err, x, y+err, length=0.05, angle=90, code=3)
+abline(h=G.EHet.mount, col="blue")
+abline(lm.mount, col="red")
+axis(1, at=1:7, labels=c("2","4","6","8","10", "20", "40"))
+legend("topright", legend=c("Global Expected Heterozygosity in Mount Pheasants", "Line of best fit"), col = colours2 , cex=0.8, fill= colours2, bty = "n")
+
+mtext(bquote( y == .(slope) * x + .(intercept)), side=4, line= 0.5) 
+
+
+########### DO A BOYPLOT INSTEAD OF SCATTER ################
+
+#zeros: no diversity found
+G.EHet.subset =subset(G.EHet, G.EHet [,1]!=0)
+boxplot(G.EHet.subset, ylim= c(0.95, 1))
+#ran 1000, and from this x times there was no variance/diversity
+
+
+#put everything in a table
+#use *cbind* to plot multiple boxes in th esame plot (binds per column)
 
 
 
 
-mean.Fh=rowMeans(Fh) #mean Fh per inividual
-mean.Fh
-Fh.overall.5 =mean(mean.Fh) #mean population Fh=-0.001661848
+##################################################################################################################
+#ANOVA - Global EHet
 
-var.overall.5 = var(mean.Fh) #mean population Fh variance=0.1495276
+aov.result <-aov(y ~ factor(x)) 
+anova(aov.result)
+
+pairwise.t.test(y, factor(x))
+TukeyHSD(aov.result)
 
 
 
-fit=locfit(~mean.Fh) #~x for a density estimation model
+##################################################################################################################
+#ANOVA - Fh
+
+
+pop.mean.2 = mean(mean.Fh.2)
+pop.mean.4 = mean(mean.Fh.4)
+pop.mean.6 = mean(mean.Fh.6)
+pop.mean.8 = mean(mean.Fh.8)
+pop.mean.10 = mean(mean.Fh.10)
+pop.mean.20 = mean(mean.Fh.20)
+pop.mean.40 = mean(mean.Fh.40)
+
+pop.mean.Fh.anova = c(pop.mean.2, pop.mean.4, pop.mean.6, pop.mean.8, pop.mean.10, pop.mean.20, pop.mean.40)
+treatment.founder = c(2, 4, 6, 8, 10, 20, 40)
+
+
+
+#smoke <- matrix(c(pop.mean.2, pop.mean.4, pop.mean.6, pop.mean.8, pop.mean.10, pop.mean.20, pop.mean.40),ncol=7,byrow=TRUE)
+#colnames(smoke) <- c("2","4","6","8","10", "20", "40")
+#rownames(smoke) <- c("Mean population Fh")
+#smoke <- as.table(smoke)
+
+
+
+lm.result <- lm(pop.mean.Fh.anova ~ factor(treatment.founder)) 
+anova(lm.result)
+
+
+aov.result <-aov(pop.mean.Fh.anova ~ factor(treatment.founder)) 
+anova(aov.result)
+
+pairwise.t.test(pop.mean.Fh.anova, factor(treatment.founder))
+TukeyHSD(aov.result)
+
+
+
+
+
+##################################################################################################################
+#OTHER?
+
+
 plot(fit) #x=mean.Fh and automatically: density on y
 abline(v=0,lty=2) #line to show the mean Fh for the real pheasant data
 
+d1 = locfit(~Fh.malay)
+f= locfit(~Fh.mount)
+plot(d1, xlab="Fh", ylab="density", xlim=c(-10^-6,-10^-4), col="red") # change the values for xlim
+lines(f, col="blue")
+
+
+
+var.overall.5 = var(mean.Fh) #mean population Fh variance=0.1495276
 
 
 library(Rfast)
@@ -148,6 +304,6 @@ lines(density(Fh))
 lines(density(Fh[,1]))
 lines(density(Fh[,1]),col=2)
 
-Hom_per_row-SEHo
+
 
 
