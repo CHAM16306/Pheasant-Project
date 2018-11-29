@@ -13,6 +13,7 @@ mountyphe <- read.pcadapt(path_to_file3, type = "vcf")
 malay.het.table=read.table("/Users/aminachabach/Project/vcftools_0.1.13/malay.out.het", header = TRUE) #read terminal output into r as a table
 mount.het.table=read.table("/Users/aminachabach/Project/vcftools_0.1.13/mount.out.het", header = TRUE)
 
+sd(mount.het.table$F)
 
 mount.het.table
 malay.ohom.df = as.data.frame(malay.het.table$O.HOM.) #write table to dataframe so it's not a list and we can select values separately
@@ -55,53 +56,47 @@ var(Fh.mount)
 hist(Fh.mount)
 
 
-malay.fit=locfit(~Fh.malay) #~x for a density estimation model
-line=plot(malay.fit) #x=mean.Fh and automatically: density on y
+
+
+#~x for a density estimation model
+#x=mean.Fh and automatically: density on y
 #abline(v=0,lty=2) #line to show the mean Fh for the real pheasant data
 
-
-mount.fit=locfit(~Fh.mount) #~x for a density estimation model
-plot(mount.fit) #x=mean.Fh and automatically: density on y
-#abline(v=0,lty=2) #line to show the mean Fh for the real pheasant data
-lines(malay.fit,col="green")
-
-plot(Fh.malay)
-plot(d)
-
-
-d <- density(Fh.malay) # returns the density data 
-d2 <- density(Fh.mount)
-plot(range(d$x, d2$x), range(d$y, d2$y), type = "n", xlab = "Fh", ylab = "Density")
-lines(d, col = "red")
-lines(d2, col = "blue")
-
-
-
-plot(d1)
+MaxMA = max(Fh.malay)
+MaxMT = max(Fh.mount)
+minMA=min(Fh.malay)
+minMT=min(Fh.mount)
 
 d1 = locfit(~Fh.malay)
 f= locfit(~Fh.mount)
-plot(d1, xlab="Fh", ylab="density", xlim=c(-10^-6,-10^-4), col="red") # change the values for xlim
-#change the xlim so it's closer to the data limits
+plot(d, xlab="Fh", ylab="density", xlim=c(minMA,MaxMT), ylim=c(0, 160000), col="red") # change the values for xlim
 lines(f, col="blue")
 
 hist(Fh.malay)
-
+hist(Fh.mount)
 
 
 
 ##################################################################################################################
 #Gene diversity = Expected heterozygosity
      
-Global.malay.EHom.phe =prod(malay.ehom.ratio)/(5802*20) #multiplying all EHoms per loci with each other to get global EHom
-Global.malay.EHet.phe = 1-Global.malay.EHom.phe #EHom + EHet = 1, so to calculate EHet from EHom...
-Global.malay.EHet.phe
+malay.ohom.ratio = malay.ohom.df/5802
+avg.malay.ohom.ratio = sum(malay.ohom.ratio)/20
+G.EHet.malay =1-(avg.malay.ohom.ratio) #Global heterozygosity = 1-sum of the sum of the indv. obsv. homo. divided by total number of sites
+
+#sqr.malay.allelefreq= (malay.ohom.ratio)^2 #p^2
+#G.EHet.malay =1-(sum(sqr.malay.allelefreq)/ 5802) #Global heterozygosity = 1-sum of the sum of the indv. obsv. homo. divided by total number of sites
+
+
+mount.ohom.ratio = mount.ohom.df/5802
+avg.mount.ohom.ratio = sum(mount.ohom.ratio)/22 #Global homozygosity
+#sqr.mount.allelefreq= (mount.ohom.ratio)^2 #p^2
+#G.EHet.mount =1-(sum(sqr.mount.allelefreq)/ 5802) #Global heterozygosity = 1-sum of the sum of the indv. obsv. homo. divided by total number of sites
+G.EHet.mount =1-(avg.mount.ohom.ratio) #Global heterozygosity = 1-sum of the sum of the indv. obsv. homo. divided by total number of sites
 
 
 
-Global.mount.EHom.phe =prod(mount.ehom.ratio)/(5802*22) #multiplying all EHoms per loci with each other to get global EHom
-Global.mount.EHet.phe = 1-Global.mount.EHom.phe #EHom + EHet = 1, so to calculate EHet from EHom...
-Global.mount.EHet.phe
+plot(G.EHet.mount)
 
 
 
