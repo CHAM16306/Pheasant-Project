@@ -1,6 +1,8 @@
 library(scrm)
 library(stringr)
 library(locfit)
+library(carData)
+library(car)
 
 #Kardos et al. 2015. He describes two measures of homozygosity - one where you look only at the minor allele frequency, and one where you look at both the minor and major alleles across the population. Kardos et al. 2015 (and everyone who uses PLINK to calculate homozygosity) uses the prior method: 
 #sum of (1-2p(1-p))
@@ -16,13 +18,14 @@ nrep=1000#min 100, 1000 if fast enough
 bp=1000000
 N0=500 #effective population ≠ census size, mention in report!
 T1=50/(4*(N0)) #time at bottleneck
-N1=20 #pop at bottlneck
+N1=40 #pop at bottlneck
 N2=150000 #ancestral pop
 G=-(1/T1)*log(N1/(N0)) #exponential growth rate after bottleneck
 a2=0 #exponential/constant growth rate in ancestral pop
 theta0=4*(N0)*(1.33*10^-9)*bp #with 1.33*10^-9 = mutationrate per yer (=generation) per locus
 p=N1/N2 #pop proportion at bottleneck (bottleneck/ancestral pop)
-r 0 160000 #recombination rate
+r = 0.03 #crossover probability between the two ends of the locus bc 3cM/Mb = 0.03% chance of crossover in the region
+rho = 4*r*N0 #recombination rate
 
 #mimic real data
 #if  this happens (object has no variables), do heterozygosity
@@ -34,7 +37,7 @@ G.EHet= matrix(nrow = nrep) #Global heterozygosity (Rita's formula)
 
 for(a in 1:nrep) #loop it nrep times
 {
-  command = paste(nhap, 1, "-t",theta0, "-G",G, "-eN",T1,p, "-eG",T1,a2)
+  command = paste(nhap, 1, "-t",theta0, "-G",G, "-eN",T1,p, "-eG",T1,a2, "-r",rho,bp )
   scrm.data<-scrm(command, file="test1")
   write.table(scrm.data, file = paste("tabledata",a, ".txt",sep = "")) #write a table for each loop and paste file in directory
   
@@ -124,9 +127,9 @@ for(a in 1:nrep) #loop it nrep times
 ##################################################################################################################
 #Plot Fh
 
-G.EHet.subset =subset(G.EHet, G.EHet [,1]!=0)
 
 #remember to not overwrite the mean.Fh.x
+
 mean.Fh.2=rowMeans(Fh) #mean Fh per inividual
 mean.Fh.4=rowMeans(Fh)
 mean.Fh.6=rowMeans(Fh)
@@ -143,7 +146,7 @@ Fh.10=locfit(~mean.Fh.10)
 Fh.20=locfit(~mean.Fh.20) 
 Fh.40=locfit(~mean.Fh.40) 
 
-plot(Fh.2, xlab="Fh", ylab="density", ylim=c(0, 8.5), xlim=c(-0.4,0.4), col="firebrick2")
+plot(Fh.2, xlab="Fh", ylab="Density", ylim=c(0, 8.5), xlim=c(-0.4,0.4), col="firebrick2")
 lines(Fh.4, col="blue1")
 lines(Fh.6, col="green")
 lines(Fh.8, col="orange")
@@ -163,21 +166,21 @@ legend("topright", legend=c("Fh.2","Fh.4", "Fh.6","Fh.8","Fh.10","Fh.20","Fh.50"
 
 #DO NOT OVERWRITE!!
 
-G.EHet.2 
-G.EHet.4
-G.EHet.6
-G.EHet.8
-G.EHet.10
-G.EHet.20 
-G.EHet.40
+G.EHet.2 = G.EHet
+G.EHet.4 = G.EHet
+G.EHet.6 = G.EHet
+G.EHet.8 = G.EHet
+G.EHet.10 = G.EHet
+G.EHet.20 = G.EHet
+G.EHet.40 = G.EHet
 
-G.EHet.2.mean=mean(G.EHet) 
-G.EHet.4.mean=mean(G.EHet) 
-G.EHet.6.mean=mean(G.EHet) 
-G.EHet.8.mean=mean(G.EHet) 
-G.EHet.10.mean=mean(G.EHet) 
-G.EHet.20.mean=mean(G.EHet)  
-G.EHet.40.mean=mean(G.EHet) 
+G.EHet.2.mean=mean(G.EHet.2) 
+G.EHet.4.mean=mean(G.EHet.4) 
+G.EHet.6.mean=mean(G.EHet.6) 
+G.EHet.8.mean=mean(G.EHet.8) 
+G.EHet.10.mean=mean(G.EHet.10) 
+G.EHet.20.mean=mean(G.EHet.20)  
+G.EHet.40.mean=mean(G.EHet.40) 
 
 ##
 
@@ -190,40 +193,57 @@ var.G.EHet.20=var(G.EHet.20)
 var.G.EHet.40=var(G.EHet.40) 
 
 
-y=c(G.EHet.2.mean, G.EHet.4.mean, G.EHet.6.mean, G.EHet.8.mean, G.EHet.10.mean, G.EHet.20.mean, G.EHet.40.mean)
-x=c(1,2,3,4,5,6,7)
-err=c(var.G.EHet.2.mean, var.G.EHet.4.mean, var.G.EHet.6.mean, var.G.EHet.8.mean, var.G.EHet.10.mean, var.G.EHet.20.mean, var.G.EHet.40.mean)
+#y=c(G.EHet.2.mean, G.EHet.4.mean, G.EHet.6.mean, G.EHet.8.mean, G.EHet.10.mean, G.EHet.20.mean, G.EHet.40.mean)
+#x=c(1,2,3,4,5,6,7)
+#err=c(var.G.EHet.2.mean, var.G.EHet.4.mean, var.G.EHet.6.mean, var.G.EHet.8.mean, var.G.EHet.10.mean, var.G.EHet.20.mean, var.G.EHet.40.mean)
 
-colours2= c("blue", "red")
+#colours2= c("blue", "red")
 
-lm.mount =lm(y ~ x)
-summary(lm.mount)
+#lm.mount =lm(y ~ x)
+#summary(lm.mount)
 #look at p value
 
-intercept =  0.62930 
-slope =  0.02068 
+#intercept =  0.65756  
+#slope =  0.02068 
 
 
-plot(x, y, pch=19, ylab="Global Expected Heterozygosty", ylim=c(0.4,1.06), xaxt = "n", xlab='Founder size')
-arrows(x, y-err, x, y+err, length=0.05, angle=90, code=3)
-abline(h=G.EHet.mount, col="blue")
-abline(lm.mount, col="red")
-axis(1, at=1:7, labels=c("2","4","6","8","10", "20", "40"))
-legend("topright", legend=c("Global Expected Heterozygosity in Mount Pheasants", "Line of best fit"), col = colours2 , cex=0.8, fill= colours2, bty = "n")
+#plot(x, y, pch=19, ylab="Global Expected Heterozygosty", ylim=c(0.4,1.06), xaxt = "n", xlab='Founder size')
+#arrows(x, y-err, x, y+err, length=0.05, angle=90, code=3)
+#abline(h=G.EHet.mount, col="blue")
+#abline(lm.mount, col="red")
+#axis(1, at=1:7, labels=c("2","4","6","8","10", "20", "40"))
+#legend("topright", legend=c("Global Expected Heterozygosity in Mount Pheasants", "Line of best fit"), col = colours2 , cex=0.8, fill= colours2, bty = "n")
 
-mtext(bquote( y == .(slope) * x + .(intercept)), side=4, line= 0.5) 
+#mtext(bquote( y == .(slope) * x + .(intercept)), side=4, line= 0.5) 
 
 
 ########### DO A BOYPLOT INSTEAD OF SCATTER ################
 
 #zeros: no diversity found
-G.EHet.subset =subset(G.EHet, G.EHet [,1]!=0)
-boxplot(G.EHet.subset, ylim= c(0.95, 1))
+G.EHet.2.subset =subset(G.EHet.2, G.EHet.2 [,1]!=0)
+G.EHet.4.subset =subset(G.EHet.4, G.EHet.4 [,1]!=0)
+G.EHet.6.subset =subset(G.EHet.6, G.EHet.6 [,1]!=0)
+G.EHet.8.subset =subset(G.EHet.8, G.EHet.8 [,1]!=0)
+G.EHet.10.subset =subset(G.EHet.10, G.EHet.10 [,1]!=0)
+G.EHet.20.subset =subset(G.EHet.20, G.EHet.20 [,1]!=0)
+G.EHet.40.subset =subset(G.EHet.40, G.EHet.40 [,1]!=0)
+
+global.list = list(G.EHet.2.subset, G.EHet.4.subset, G.EHet.6.subset, G.EHet.8.subset, G.EHet.10.subset, G.EHet.20.subset, G.EHet.40.subset)
+
+
+
+boxplot(global.list, ylim= c(0.89, 1), xaxt = "n", xlab='Founder size', ylab="Global Expected Heterozygosty")
 #ran 1000, and from this x times there was no variance/diversity
-
-
+axis(1, at=1:7, labels=c("2","4","6","8","10", "20", "40"))
+abline(h=G.EHet.mount, col="blue")
+legend("bottomright", legend = "Mountain Pheasant", col = "blue", bty= "n", fill = "blue")
 #put everything in a table
 #use *cbind* to plot multiple boxes in th esame plot (binds per column)
+
+
+length(G.EHet)-length(G.EHet.subset) #calculates number of simulations that showed no variance
+
+
 
 
 
@@ -231,11 +251,48 @@ boxplot(G.EHet.subset, ylim= c(0.95, 1))
 ##################################################################################################################
 #ANOVA - Global EHet
 
-aov.result <-aov(y ~ factor(x)) 
-anova(aov.result)
+y=c(G.EHet.2, G.EHet.4, G.EHet.6, G.EHet.8, G.EHet.10, G.EHet.20, G.EHet.40)
+x=c(1,2,3,4,5,6,7)
+x.factor =as.factor(x)
+aov.data <- data.frame(y, x.factor) #make dataframe where x is a factor and y is numeric
+str(aov.data) #look at dataframe
 
-pairwise.t.test(y, factor(x))
-TukeyHSD(aov.result)
+
+aov.out = aov(y ~ x.factor, data=aov.data)
+summary(aov.out)
+summary.lm(aov.out)
+TukeyHSD(aov.out)
+
+
+#Testing the assumptions
+
+
+bartlett.test(y ~ x.factor, data=aov.data) #Homogeneity of variance
+#Insignificant result, therefore variances can be assumed to be equal
+
+#Check the normality assumption
+plot(aov.out, 2) #Model checking plots
+#As all the points do not fall approximately along this reference line, we cannot assume normality.
+
+#Check the homogeneity of variance assumption
+leveneTest(y ~ x.factor, data = aov.data) #p-value is less than the significance level of 0.05. This means that there is no evidence to suggest that the variance across groups is statistically significantly different. Therefore, we can assume the homogeneity of variances in the different treatment groups.
+plot(aov.out, 1)
+#Points ?? are detected as outliers, which can severely affect normality and homogeneity of variance. It can be useful to remove outliers to meet the test assumptions.
+
+#normality test
+shapiro.test(resid(aov.out)) #Error sample size must be between 3 and 5000
+
+
+
+#Non-parametric alternative to ANOVA:
+kruskal.test(y ~ x.factor, data=aov.data)
+# p-value = 0.2958 = non significant
+
+
+
+
+
+
 
 
 
@@ -243,36 +300,42 @@ TukeyHSD(aov.result)
 #ANOVA - Fh
 
 
-pop.mean.2 = mean(mean.Fh.2)
-pop.mean.4 = mean(mean.Fh.4)
-pop.mean.6 = mean(mean.Fh.6)
-pop.mean.8 = mean(mean.Fh.8)
-pop.mean.10 = mean(mean.Fh.10)
-pop.mean.20 = mean(mean.Fh.20)
-pop.mean.40 = mean(mean.Fh.40)
-
-pop.mean.Fh.anova = c(pop.mean.2, pop.mean.4, pop.mean.6, pop.mean.8, pop.mean.10, pop.mean.20, pop.mean.40)
-treatment.founder = c(2, 4, 6, 8, 10, 20, 40)
+y2=c(mean.Fh.2, mean.Fh.4, mean.Fh.6, mean.Fh.8, mean.Fh.10, mean.Fh.20, mean.Fh.40)
+x2=c(1,2,3,4,5,6,7)
+x2.factor =as.factor(x2)
+aov.data.Fh <- data.frame(y2, x2.factor) #make dataframe where x is a factor and y is numeric
+str(aov.data.Fh) #look at dataframe
 
 
-
-#smoke <- matrix(c(pop.mean.2, pop.mean.4, pop.mean.6, pop.mean.8, pop.mean.10, pop.mean.20, pop.mean.40),ncol=7,byrow=TRUE)
-#colnames(smoke) <- c("2","4","6","8","10", "20", "40")
-#rownames(smoke) <- c("Mean population Fh")
-#smoke <- as.table(smoke)
-
+aov.out.Fh = aov(y2 ~ x2.factor, data=aov.data.Fh)
+summary(aov.out.Fh)
+summary.lm(aov.out.Fh)
+TukeyHSD(aov.out.Fh)
 
 
-lm.result <- lm(pop.mean.Fh.anova ~ factor(treatment.founder)) 
-anova(lm.result)
+#Testing the assumptions
+
+bartlett.test(y2 ~ x2.factor, data=aov.data.Fh) #Homogeneity of variance
+#Significant result, therefore variances cannot be assumed to be equal?
+
+#Check the normality assumption
+plot(aov.out.Fh, 2) #Model checking plots
+#As all the points fall approximately along this reference line, we can assume normality.
+
+#Check the homogeneity of variance assumption
+leveneTest(y2 ~ x2.factor, data = aov.data.Fh) #p-value is not less than the significance level of 0.05. This means that there is no evidence to suggest that the variance across groups is statistically significantly different. Therefore, we can assume the homogeneity of variances in the different treatment groups.
+plot(aov.out.Fh, 1)
+#Points 24, 57, 62 are detected as outliers, which can severely affect normality and homogeneity of variance. It can be useful to remove outliers to meet the test assumptions.
+
+#normality test
+shapiro.test(resid(aov.out.Fh))
+#non significant
 
 
-aov.result <-aov(pop.mean.Fh.anova ~ factor(treatment.founder)) 
-anova(aov.result)
 
-pairwise.t.test(pop.mean.Fh.anova, factor(treatment.founder))
-TukeyHSD(aov.result)
 
+#Non-parametric alternative to ANOVA:
+kruskal.test(y ~ x.factor, data=aov.data)
 
 
 
