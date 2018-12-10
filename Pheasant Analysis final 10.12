@@ -151,9 +151,13 @@ allele0 = (mount.freq.0[1:5386,] + malay.freq.0)^2
 
 HT= 1-sum(allele1+allele0)
 
-HS=
 
+pop1 = (mount.freq.1[1:5386,])^2 + (mount.freq.0[1:5386,])^2
+pop2 = (malay.freq.1)^2 + (malay.freq.0)^2
+HS= 1- sum(pop1 + pop2)
 
+FST=1-(HS/2)/(HT/2) #We don't need two divide HT and HS by the number of populations because this number is going to be removed in the in the FST formula.
+FST=1-HS/HT
 
 
 
