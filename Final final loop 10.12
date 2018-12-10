@@ -1,0 +1,752 @@
+library(scrm)
+library(stringr)
+library(locfit)
+library(carData)
+library(car)
+library(Rfast)
+library(FSA)
+
+sessionInfo()
+
+#Kardos et al. 2015. He describes two measures of homozygosity - one where you look only at the minor allele frequency, and one where you look at both the minor and major alleles across the population. Kardos et al. 2015 (and everyone who uses PLINK to calculate homozygosity) uses the prior method: 
+#sum of (1-2p(1-p))
+#where p is the minor allele frequency at locus 1 across the whole population. 
+
+
+
+
+#First we vdescribed our variables:
+nhap=44#2*number of samples i.e. number of pheasante in real data (bc diploid) 
+#2 seperate simulations, one for malaysian (20 indv) and mountain (22 indv)
+nrep=10000#min 100, 1000 if fast enough
+bp=1000000
+N0=500 #effective population ≠ census size, mention in report!
+T1=50/(4*(N0)) #time at bottleneck
+N1=40 #pop at bottlneck
+N2=150000 #ancestral pop
+G=-(1/T1)*log(N1/(N0)) #exponential growth rate after bottleneck
+a2=0 #exponential/constant growth rate in ancestral pop
+theta0=4*(N0)*(1.33*10^-9)*bp #with 1.33*10^-9 = mutationrate per yer (=generation) per locus
+p=N1/N2 #pop proportion at bottleneck (bottleneck/ancestral pop)
+r = 0.03 #crossover probability between the two ends of the locus bc 3cM/Mb = 0.03% chance of crossover in the region
+rho = 4*r*N0 #recombination rate
+
+#mimic real data
+#if  this happens (object has no variables), do heterozygosity
+#with small seq by chance th eprobabilty of having a varient is v low ( all indv the same) 
+
+Fh = matrix(ncol = nrep,nrow=nhap/2) #make columns for each iteration, with the number of rows = nbr of inividuals
+#Fh calculated with only minor allele frequency (see Keller et al.)
+G.EHet = matrix(nrow = nrep) #Global heterozygosity (Rita's formula)
+G.EHom = matrix(nrow = nrep)
+Fis = matrix(ncol = nrep,nrow=nhap/2)
+for(a in 1:nrep) #loop it nrep times
+{
+  command = paste(nhap, 1, "-t",theta0, "-G",G, "-eN",T1,p, "-eG",T1,a2, "-r",rho,bp , "-print-model")
+  scrm.data<-scrm(command, file="test1")
+  write.table(scrm.data, file = paste("tabledata",a, ".txt",sep = "")) #write a table for each loop and paste file in directory
+  
+ 
+  scrm.df=as.data.frame(scrm.data) #coerce to class data.frame
+  
+  if(dim(scrm.df)[2]==0){ #bc low mutation rate sometimes no variants; to avoid this, tell loop to make G.EHet and Fh equal 0 if the dimensions of the columns [2] of scrm.df are 0 (bc if dim = 0 that means no diversity which means there is no heterozygosity, only homozygosity)
+    
+    Fh[,a]<-0 #conditions
+    G.EHet[a]<-0 
+    G.EHom[a]<-1
+    Fis[,a]<-1
+    
+  }
+  
+  else{#if the dim ≠ 0 then just rin loop normally
+    
+  shuffled.data <- scrm.df[sample(nrow(scrm.df)),] #shuffle the rows
+  shuffled.matrix <- data.matrix(shuffled.data, rownames.force = NA) #Convert a Data Frame to a Numeric Matrix
+  diploid.data <- rowsum(shuffled.matrix, as.integer(gl(nrow(shuffled.matrix), 2, nrow(shuffled.matrix)))) #combine 2 rows into 1 (haploid into diploid)
+  named.diploid <- ifelse(diploid.data %% 2 == 0,"Hom","Het") #if dividable by 2 and remainder 0, then name "Hom", if not name "Het"
+  
+  n.loci <- ncol(shuffled.matrix)
+  #number of loci (i.e. segsites)
+  
+  Hom_per_row = numeric() #Homozygosity per colum by counting the "Hom"s
+
+  for (i in 1:nhap/2)#nbr of rows, that's how many individuals we have
+  {
+    Hom_per_row[i] = sum(str_count(named.diploid[i,], "Hom"))/n.loci #number of hom divided by number of loci (frequency of hom per number of loci)
+  }
+  #number of hom divided by number of loci (frequency of hom per number of loci) 
+  
+  
+  # hom00 <- sum(str_count(diploid.data, "0")) #nbr of homozygous loci 00
+  # hom11 <- sum(str_count(diploid.data, "2")) #nbr of homozygous loci 11
+  # het01 <- sum(str_count(diploid.data, "1")) #nbr of heterozygous loci 01
+  
+  
+  M1_per_col = numeric() #allele frequency of 1s
+  M0_per_col = numeric() #allele frequency of 0s
+  maf = numeric() #minor allele frequency
+  EHom = numeric() #Expected Homozygosity
+  for (i in 1:n.loci) #calculations per loci (i.e. columns) not individuals
+  
+    #count number of ones and zeros and depending on which is smaller use that one to calculate the minor allele frequency
+  {
+    M1_per_col[i] = sum(str_count(shuffled.matrix[,i], "1")) #count all the 1 (=mutation, whereas 0 are the ancestral state) for each segsite
+    M0_per_col[i] = sum(str_count(shuffled.matrix[,i], "0")) #count all the 1 (=mutation, whereas 0 are the ancestral state) for each segsite
+    if (M1_per_col[i] >=  M0_per_col[i]) #if number of M1 > M0, then us e M0 as the minor allele ferquency
+    {
+      
+      maf[i]=M0_per_col[i]/nhap #number of hom per column, divided by total number of rows (2*individuals), so maf per loci
+      EHom[i]=1-2*maf[i]*(1-maf[i])  #expected homozygosity per locus across the whole population
+    }
+    else
+    {
+    maf[i]=M1_per_col[i]/nhap #number of hom per column, divided by total number of rows (2*individuals), so maf per loci
+    EHom[i]=1-2*maf[i]*(1-maf[i])  #expected homozygosity per locus across the whole population
+  }
+  }
+  
+  SEHom = mean(EHom)# expected mean number of homozygous genotypes across m loci
+  #leave you with one value
+  
+  #SOHom = (hom00 + hom11)  #sum of observed homozygous loci across population
+
+  
+  Fh[,a]= (Hom_per_row-SEHom)/(n.loci-SEHom) #Fh as proxy for inbreeding
+  Fh.test= (Hom_per_row-SEHom)/(n.loci-SEHom)
+  #if (Hom_per_row-SEHom) = (n.loci-SEHom), i.e. Hom_per_row = n.loci, then Fh = 1 
+  #negative when Hom_per_row < SEHom and 
+   
+  rows= nrow(shuffled.matrix)
+  cols=ncol(shuffled.matrix)
+  total.sites = rows*cols #is the total number of sites needed for the caclulation of the gene diversity
+  
+  G.Mut_per_col = numeric() #number of allele 1 per column
+  G.maf = numeric() #major allele frequency ratio = number of 1 divided by total number of alleles = p (because ratio)
+  G.Min.mut_per_col=numeric() #number of allele 0 per column
+  G.min.af = numeric() #minor allele frequency ratio = number of 0 divided by total number of alleles =p
+  G.total.allele.freq=numeric() #sum of p^2 (individual observed homozygosity)
+  
+  for (i in 1:n.loci)
+  {
+    G.Mut_per_col[i] = sum(str_count(shuffled.matrix[,i], "1")) #count all the 1 (=mutation, whereas 0 are the ancestral state) for each segsite
+    G.maf[i]=G.Mut_per_col[i]/nhap #number of hom per column, divided by total number of rows (2*individuals), so maf per loci
+    #G.Min.mut_per_col[i] = sum(str_count(shuffled.matrix[,i], "0")) #count all the 0 (=mutation, whereas 0 are the ancestral state) for each segsite
+    #G.min.af[i] = G.Min.mut_per_col[i]/nhap
+    G.total.allele.freq[i]=  (G.maf[i])^2 #+ (G.min.af[i])^2 #sum of p^2
+    
+    #Global Het/Hom using only minor allele frequency bc that's what we used to calculate Fh
+    G.EHet[a] =1-(sum(G.total.allele.freq[i])/ total.sites) #Global heterozygosity = 1-sum of the sum of the indv. obsv. homo. divided by total number of sites
+    G.EHom[a] =(sum(G.total.allele.freq[i])/ total.sites)
+  }
+  
+  
+  
+ 
+  #deviation of the observed heterozygosity of an individual relative to the heterozygosity expected under random mating (Hardy–Weinberg equilibrium)
+  #Fis=1−Ho/He. Fis>0 signifies more inbreeding than is expected at random, whereas Fis<0 indicates that inbreeding occurred less often than would be expected at random.
+  
+  Fis.Mut_per_col = numeric() #number of allele 1 per column
+  Fis.maf = numeric() #major allele frequency ratio = number of 1 divided by total number of alleles = p (because ratio)
+  Fis.Min.mut_per_col=numeric() #number of allele 0 per column
+  Fis.min.af = numeric() #minor allele frequency ratio = number of 0 divided by total number of alleles =p
+  Fis.total.allele.freq=numeric() #sum of p^2 (individual observed homozygosity)
+  
+  for (i in 1:n.loci)
+  {
+  Fis.Mut_per_col[i] = sum(str_count(shuffled.matrix[,i], "1")) #count all the 1 (=mutation, whereas 0 are the ancestral state) for each segsite
+  Fis.maf[i]=Fis.Mut_per_col[i]/nhap #number of hom per column, divided by total number of rows (2*individuals), so maf per loci
+  
+  Fis.Min.mut_per_col[i] = sum(str_count(shuffled.matrix[,i], "0")) #count all the 0 (=mutation, whereas 0 are the ancestral state) for each segsite
+  Fis.min.af[i] = Fis.Min.mut_per_col[i]/nhap
+  
+  Fis.total.allele.freq[i]=  (Fis.maf[i])^2 + (Fis.min.af[i])^2 #sum of p^2
+  
+  EHom[i]=1-2* Fis.total.allele.freq[i]*(1- Fis.total.allele.freq[i])
+  
+  SEHom = mean(EHom)# expected mean number of homozygous genotypes across m loci
+  
+  
+  Fis[,a]= 1-((Hom_per_row)/SEHom)
+
+  
+  }
+  
+  }
+  }
+
+
+#write about how x % of the simualations had no diversity (where Fh = 0, get rif pf these)
+
+
+
+
+
+##################################################################################################################
+#Plot Fis
+
+
+Fis.2.sim = Fis
+Fis.4.sim = Fis
+Fis.6.sim = Fis
+Fis.8.sim = Fis
+Fis.10.sim = Fis
+Fis.20.sim = Fis
+Fis.40.sim = Fis
+
+print(Fis.means.2)
+Fis.means.2=colMeans(Fis.2.sim) 
+Fis.means.4=colMeans(Fis.4.sim)
+Fis.means.6=colMeans(Fis.6.sim)
+Fis.means.8=colMeans(Fis.8.sim)
+Fis.means.10=colMeans(Fis.10.sim)
+Fis.means.20=colMeans(Fis.20.sim)
+Fis.means.40=colMeans(Fis.40.sim)
+
+# mean Fh per inividual
+# Fh.median.2=colMedian(Fh.2.sim) 
+# Fh.means.4=colMeans(Fh.4.sim)
+# Fh.means.6=colMeans(Fh.6.sim)
+# Fh.means.8=colMeans(Fh.8.sim)
+# Fh.means.10=colMeans(Fh.10.sim)
+# Fh.means.20=colMeans(Fh.20.sim)
+# Fh.means.40=colMeans(Fh.40.sim)
+
+
+#Subset Fh to remove values = 0 (zeros due to stochastistity), to avoid confounding effects? Only interested in simualtions where there was variation
+Fis.subset.2 = subset(Fis.means.2, Fis.means.2!=0)
+Fis.subset.4 = subset(Fis.means.4, Fis.means.4!=0)
+Fis.subset.6 = subset(Fis.means.6, Fis.means.6!=0)
+Fis.subset.8 = subset(Fis.means.8, Fis.means.8!=0)
+Fis.subset.10 = subset(Fis.means.10, Fis.means.10!=0)
+Fis.subset.20 = subset(Fis.means.20, Fis.means.20!=0)
+Fis.subset.40 = subset(Fis.means.40, Fis.means.40!=0)
+
+
+Fis.2.loc=locfit(~Fis.subset.2, maxk=120, alpha = 0.9) #~x for a density estimation model
+Fis.4.loc=locfit(~Fis.subset.4, maxk=120 , alpha = 0.9) 
+Fis.6.loc=locfit(~Fis.subset.6, maxk=120 , alpha = 0.9) 
+Fis.8.loc=locfit(~Fis.subset.8,  alpha = 0.8) 
+Fis.10.loc=locfit(~Fis.subset.10, maxk=120 , alpha = 0.9) 
+Fis.20.loc=locfit(~Fis.subset.20, maxk=120, alpha = 0.9) 
+Fis.40.loc=locfit(~Fis.subset.40, maxk=120, alpha = 0.9) 
+
+hist(Fis.subset.8)
+
+mean(Fis.subset.2)
+mean(Fis.subset.4)
+mean(Fis.subset.6)
+mean(Fis.subset.8)
+mean(Fis.subset.10)
+mean(Fis.subset.20)
+mean(Fis.subset.40)
+
+plot(Fis.2.loc, xlab="Fis", ylab="Density", ylim=c(0, 78), xlim=c(-0.2,0.2), col="firebrick2")
+lines(Fis.4.loc, col="blue1")
+lines(Fis.6.loc, col="green")
+lines(Fis.8.loc, col="orange")
+lines(Fis.10.loc, col="gray14")
+lines(Fis.20.loc, col="purple")
+lines(Fis.40.loc, col="deepskyblue")
+abline(v=Fis.mount.mean,lty=2) #line to show the mean Fh for the real pheasant data
+abline(v=0,lty=2)
+colours = c("firebrick2", "blue1", "green", "orange", "gray14", "purple", "deepskyblue")
+legend("topright", legend=c("Fh.2","Fh.4", "Fh.6","Fh.8","Fh.10","Fh.20","Fh.40"), col = colours, cex=0.8, fill= colours, bty="n")
+
+# Fis>0 signifies more inbreeding than is expected at random,
+
+##################################################################################################################
+#Plot Fh
+
+
+#remember to not overwrite the mean.Fh.x
+
+Fh.2.sim = Fh
+Fh.4.sim = Fh
+Fh.6.sim = Fh
+Fh.8.sim = Fh
+Fh.10.sim = Fh
+Fh.20.sim = Fh
+Fh.40.sim = Fh
+
+#mean Fh per iteration (col = iteration)
+Fh.means.2=colMeans(Fh.2.sim) 
+Fh.means.4=colMeans(Fh.4.sim)
+Fh.means.6=colMeans(Fh.6.sim)
+Fh.means.8=colMeans(Fh.8.sim)
+Fh.means.10=colMeans(Fh.10.sim)
+Fh.means.20=colMeans(Fh.20.sim)
+Fh.means.40=colMeans(Fh.40.sim)
+
+# median Fh per inividual
+Fh.median.2=colMedians(Fh.2.sim)
+Fh.means.4=colMedians(Fh.4.sim)
+Fh.means.6=colMedians(Fh.6.sim)
+Fh.means.8=colMedians(Fh.8.sim)
+Fh.means.10=colMedians(Fh.10.sim)
+Fh.means.20=colMedians(Fh.20.sim)
+Fh.means.40=colMedians(Fh.40.sim)
+
+
+#Subset Fh to remove values = 0 (zeros due to stochastistity), to avoid confounding effects? Only interested in simualtions where there was variation
+Fh.subset.2 = subset(Fh.means.2, Fh.means.2!=0)
+Fh.subset.4 = subset(Fh.means.4, Fh.means.4!=0)
+Fh.subset.6 = subset(Fh.means.6, Fh.means.6!=0)
+Fh.subset.8 = subset(Fh.means.8, Fh.means.8!=0)
+Fh.subset.10 = subset(Fh.means.10, Fh.means.10!=0)
+Fh.subset.20 = subset(Fh.means.20, Fh.means.20!=0)
+Fh.subset.40 = subset(Fh.means.40, Fh.means.40!=0)
+
+mean(Fh.subset.2)
+mean(Fh.subset.4)
+mean(Fh.subset.6)
+mean(Fh.subset.8)
+mean(Fh.subset.10)
+mean(Fh.subset.20)
+mean(Fh.subset.40)
+
+Fh.2.loc=locfit(~Fh.subset.2, maxk=120, alpha = 0.9) #~x for a density estimation model
+Fh.4.loc=locfit(~Fh.subset.4, maxk=120, alpha = 0.9) 
+Fh.6.loc=locfit(~Fh.subset.6, maxk=120, alpha = 0.9) 
+Fh.8.loc=locfit(~Fh.subset.8, maxk=120, alpha = 0.9) 
+Fh.10.loc=locfit(~Fh.subset.10, maxk=120, alpha = 0.9) 
+Fh.20.loc=locfit(~Fh.subset.20, maxk=120, alpha = 0.9) 
+Fh.40.loc=locfit(~Fh.subset.40, maxk=120, alpha = 0.9) 
+
+
+plot(Fh.2.loc, xlab="Fh", ylab="Density", ylim=c(0,25), xlim=c(-0.2,0.2), col="firebrick2")
+lines(Fh.4.loc, col="blue1")
+lines(Fh.6.loc, col="green")
+lines(Fh.8.loc, col="orange")
+lines(Fh.10.loc, col="gray14")
+lines(Fh.20.loc, col="purple")
+lines(Fh.40.loc, col="deepskyblue")
+abline(v=mean.Fh.mount,lty=2) #line to show the mean Fh for the real pheasant data
+
+colours = c("firebrick2", "blue1", "green", "orange", "gray14", "purple", "deepskyblue")
+legend("topright", legend=c("Fh.2","Fh.4", "Fh.6","Fh.8","Fh.10","Fh.20","Fh.40"), col = colours, cex=0.8, fill= colours, bty="n")
+
+# centered near zero in random mating populations when allele frequencies are taken from the current sample of individuals
+
+
+# plot(Fh.2.loc, xlab="Fh", ylab="Density", ylim=c(0,25), xlim=c(-0.2,0.2), col="firebrick2")
+# lines(Fh.4.loc, col="blue1")
+# lines(Fh.6.loc, col="green")
+# lines(Fh.8.loc, col="orange")
+# lines(Fh.10.loc, col="gray14")
+# lines(Fh.20.loc, col="purple")
+# lines(Fh.40.loc, col="deepskyblue")
+# abline(v=mean.Fh.mount,lty=2) #line to show the mean Fh for the real pheasant data
+# 
+# colours = c("firebrick2", "blue1", "green", "orange", "gray14", "purple", "deepskyblue")
+# legend("topright", legend=c("Fh.2","Fh.4", "Fh.6","Fh.8","Fh.10","Fh.20","Fh.40"), col = colours, cex=0.8, fill= colours, bty="n")
+
+
+
+# mypath <- file.path("/Users/aminachabach/Documents/University_2018_Yr3/Project/Project Y3/Plots" ,paste("Mount_Fh_Locfit", ".jpg", sep = "") )
+# jpeg(file=mypath)
+# 
+# y.fh=c(G.EHom.2.mean.sub, G.EHom.4.mean.sub, G.EHom.6.mean.sub, G.EHom.8.mean.sub, G.EHom.10.mean.sub, G.EHom.20.mean.sub, G.EHom.40.mean.sub)
+# x.fh=c(1,2,3,4,5,6,7)
+# err.hom=c(var.G.EHom.2.sub, var.G.EHom.4.sub, var.G.EHom.6.sub, var.G.EHom.8.sub, var.G.EHom.10.sub, var.G.EHom.20.sub, var.G.EHom.40.sub)
+# 
+# plot(x.hom, y.hom, pch=19, ylab="Global Expected Homozygosty", xaxt = "n", xlab='Founder size')
+# arrows(x.hom, y.hom-(err.hom), x.hom, y.hom+(err.hom), length=0.05, angle=90, code=3)
+# abline(h=G.EHet.mount, col="blue")
+# abline(lm.mount, col="red")
+# axis(1, at=1:7, labels=c("2","4","6","8","10", "20", "40"))
+# legend("topright", legend=c("Global Expected Homozygosity in Mount Pheasants", "Line of best fit"), col = colours2 , cex=0.8, fill= colours2, bty = "n")
+# mtext(bquote( y == .(slope) * x + .(intercept)), side=4, line= 0.5)
+# 
+# dev.off()  #stop it automatically saving.
+
+
+
+
+
+
+##################################################################################################################
+#Global Heterozygosity Plot
+
+
+#DO NOT OVERWRITE!!
+
+G.EHet.2 = G.EHet
+G.EHet.4 = G.EHet
+G.EHet.6 = G.EHet
+G.EHet.8 = G.EHet
+G.EHet.10 = G.EHet
+G.EHet.20 = G.EHet
+G.EHet.40 = G.EHet
+
+G.EHom.2 = G.EHom
+G.EHom.4 = G.EHom
+G.EHom.6 = G.EHom
+G.EHom.8 = G.EHom
+G.EHom.10 = G.EHom
+G.EHom.20 = G.EHom
+G.EHom.40 = G.EHom
+
+G.EHet.2.mean=mean(G.EHet.2) 
+G.EHet.4.mean=mean(G.EHet.4) 
+G.EHet.6.mean=mean(G.EHet.6) 
+G.EHet.8.mean=mean(G.EHet.8) 
+G.EHet.10.mean=mean(G.EHet.10) 
+G.EHet.20.mean=mean(G.EHet.20)  
+G.EHet.40.mean=mean(G.EHet.40) 
+
+G.EHom.2.mean=mean(G.EHom.2) 
+G.EHom.4.mean=mean(G.EHom.4) 
+G.EHom.6.mean=mean(G.EHom.6) 
+G.EHom.8.mean=mean(G.EHom.8) 
+G.EHom.10.mean=mean(G.EHom.10) 
+G.EHom.20.mean=mean(G.EHom.20) 
+G.EHom.40.mean=mean(G.EHom.40) 
+
+G.EHet.2.median=median(G.EHet.2) 
+G.EHet.4.median=median(G.EHet.4) 
+G.EHet.6.median=median(G.EHet.6) 
+G.EHet.8.median=median(G.EHet.8) 
+G.EHet.10.median=median(G.EHet.10) 
+G.EHet.20.median=median(G.EHet.20)  
+G.EHet.40.median=median(G.EHet.40) 
+
+G.EHom.2.median=median(G.EHom.2) 
+G.EHom.4.median=median(G.EHom.4) 
+G.EHom.6.median=median(G.EHom.6) 
+G.EHom.8.median=median(G.EHom.8) 
+G.EHom.10.median=median(G.EHom.10) 
+G.EHom.20.median=median(G.EHom.20) 
+G.EHom.40.median=median(G.EHom.40) 
+
+#zeros: no diversity found
+G.EHet.2.subset =subset(G.EHet.2, G.EHet.2 [,1]!=0)
+G.EHet.4.subset =subset(G.EHet.4, G.EHet.4 [,1]!=0)
+G.EHet.6.subset =subset(G.EHet.6, G.EHet.6 [,1]!=0)
+G.EHet.8.subset =subset(G.EHet.8, G.EHet.8 [,1]!=0)
+G.EHet.10.subset =subset(G.EHet.10, G.EHet.10 [,1]!=0)
+G.EHet.20.subset =subset(G.EHet.20, G.EHet.20 [,1]!=0)
+G.EHet.40.subset =subset(G.EHet.40, G.EHet.40 [,1]!=0)
+
+
+G.EHom.2.subset =subset(G.EHom.2, G.EHom.2 [,1]!=1)
+G.EHom.4.subset =subset(G.EHom.4, G.EHom.4 [,1]!=1)
+G.EHom.6.subset =subset(G.EHom.6, G.EHom.6 [,1]!=1)
+G.EHom.8.subset =subset(G.EHom.8, G.EHom.8 [,1]!=1)
+G.EHom.10.subset =subset(G.EHom.10, G.EHom.10 [,1]!=1)
+G.EHom.20.subset =subset(G.EHom.20, G.EHom.20 [,1]!=1)
+G.EHom.40.subset =subset(G.EHom.40, G.EHom.40 [,1]!=1)
+
+##
+
+var.G.EHet.2=var(G.EHet.2)
+var.G.EHet.4=var(G.EHet.4)
+var.G.EHet.6=var(G.EHet.6)
+var.G.EHet.8=var(G.EHet.8)
+var.G.EHet.10=var(G.EHet.10)
+var.G.EHet.20=var(G.EHet.20)
+var.G.EHet.40=var(G.EHet.40)
+
+# 
+
+G.EHom.2.mean.sub=mean(G.EHom.2.subset) 
+G.EHom.4.mean.sub=mean(G.EHom.4.subset) 
+G.EHom.6.mean.sub=mean(G.EHom.6.subset) 
+G.EHom.8.mean.sub=mean(G.EHom.8.subset) 
+G.EHom.10.mean.sub=mean(G.EHom.10.subset) 
+G.EHom.20.mean.sub=mean(G.EHom.20.subset) 
+G.EHom.40.mean.sub=mean(G.EHom.40.subset)
+
+var.G.EHom.2.sub=var(G.EHom.2.subset)
+var.G.EHom.4.sub=var(G.EHom.4.subset)
+var.G.EHom.6.sub=var(G.EHom.6.subset)
+var.G.EHom.8.sub=var(G.EHom.8.subset)
+var.G.EHom.10.sub=var(G.EHom.10.subset)
+var.G.EHom.20.sub=var(G.EHom.20.subset)
+var.G.EHom.40.sub=var(G.EHom.40.subset)
+
+ #y=c(G.EHet.2.mean, G.EHet.4.mean, G.EHet.6.mean, G.EHet.8.mean, G.EHet.10.mean, G.EHet.20.mean, G.EHet.40.mean)
+
+ colours2= c("blue", "red")
+
+ lm.mount =lm(y ~ x)
+ summary(lm.mount)
+ #look at p value
+
+ #intercept =  0.65756
+ #slope =  0.02068
+
+
+
+
+y.hom=c(G.EHom.2.mean.sub, G.EHom.4.mean.sub, G.EHom.6.mean.sub, G.EHom.8.mean.sub, G.EHom.10.mean.sub, G.EHom.20.mean.sub, G.EHom.40.mean.sub)
+x.hom=c(1,2,3,4,5,6,7)
+err.hom=c(var.G.EHom.2.sub, var.G.EHom.4.sub, var.G.EHom.6.sub, var.G.EHom.8.sub, var.G.EHom.10.sub, var.G.EHom.20.sub, var.G.EHom.40.sub)
+
+plot(x.hom, y.hom, pch=19, ylab="Global Expected Homozygosty", xaxt = "n", xlab='Founder size')
+arrows(x.hom, y.hom-(err.hom), x.hom, y.hom+(err.hom), length=0.05, angle=90, code=3)
+abline(h=G.EHet.mount, col="blue")
+abline(lm.mount, col="red")
+axis(1, at=1:7, labels=c("2","4","6","8","10", "20", "40"))
+legend("topright", legend=c("Global Expected Homozygosity in Mount Pheasants", "Line of best fit"), col = colours2 , cex=0.8, fill= colours2, bty = "n")
+mtext(bquote( y == .(slope) * x + .(intercept)), side=4, line= 0.5)                                            
+               
+
+########### DO A BOYPLOT INSTEAD OF SCATTER ################
+
+
+#If the locfit() call produces a warning about insufficient space, then increase maxk
+G.EHet.2.loc = locfit(~G.EHet.2.subset, maxk=130)
+G.EHet.4.loc = locfit(~G.EHet.4.subset, maxk=130)
+G.EHet.6.loc = locfit(~G.EHet.6.subset, maxk=120)
+G.EHet.8.loc = locfit(~G.EHet.8.subset, maxk=120)
+G.EHet.10.loc = locfit(~G.EHet.10.subset, alpha=0.9)
+G.EHet.20.loc = locfit(~G.EHet.20.subset, maxk=130)
+G.EHet.40.loc = locfit(~G.EHet.40.subset, alpha=0.9)
+
+hist(G.EHet.2.subset, xlim = c(0.997, 1))
+hist(G.EHet.4.subset, xlim = c(0.997, 1))
+hist(G.EHet.8.subset, xlim = c(0.997, 1))
+hist(G.EHet.10.subset, xlim = c(0.997, 1))
+hist(G.EHet.20.subset, xlim = c(0.997, 1))
+hist(G.EHet.40.subset, xlim = c(0.997, 1))
+
+
+plot(G.EHet.2.loc, xlab="Global Expected Heterozygosity", ylab="Density", ylim=c(0, 48000), xlim=c(0.9998,1.00005), col="firebrick2")
+lines(G.EHet.4.loc, col="blue1")
+lines(G.EHet.6.loc, col="green")
+lines(G.EHet.8.loc, col="orange")
+lines(G.EHet.10.loc, col="gray14")
+lines(G.EHet.20.loc, col="purple")
+lines(G.EHet.40.loc, col="deepskyblue")
+abline(v=G.EHet.mount,lty=2) #line to show the mean Fh for the real pheasant data
+
+colours = c("firebrick2", "blue1", "green", "orange", "gray14", "purple", "deepskyblue")
+legend("topright", legend=c("G.EHet.2","G.EHet.4", "G.EHet.6","G.EHet.8","G.EHet.10","G.EHet.20","G.EHet.40"), col = colours, cex=0.8, fill= colours, bty="n")
+
+
+
+ global.list = list(G.EHet.2.subset, G.EHet.4.subset, G.EHet.6.subset, G.EHet.8.subset, G.EHet.10.subset, G.EHet.20.subset, G.EHet.40.subset)
+ boxplot(global.list, ylim= c(0.89, 1), xaxt = "n", xlab='Founder size', ylab="Global Expected Heterozygosty")
+# #ran 1000, and from this x times there was no variance/diversity
+# axis(1, at=1:7, labels=c("2","4","6","8","10", "20", "40"))
+# abline(h=G.EHet.mount, col="blue")
+# legend("bottomright", legend = "Mountain Pheasant", col = "blue", bty= "n", fill = "blue")
+# #put everything in a table
+# #use *cbind* to plot multiple boxes in th esame plot (binds per column)
+
+
+length(G.EHet)-length(G.EHet.subset) #calculates number of simulations that showed no variance
+
+
+G.EHom.2.loc = locfit(~G.EHom.2.subset, alpha=0.8, maxk=130)
+G.EHom.4.loc = locfit(~G.EHom.4.subset, alpha=0.8, maxk=130)
+G.EHom.6.loc = locfit(~G.EHom.6.subset, alpha=0.8, maxk=130)
+G.EHom.8.loc = locfit(~G.EHom.8.subset, alpha=0.8, maxk=130)
+G.EHom.10.loc = locfit(~G.EHom.10.subset, alpha=0.8, maxk=130)
+G.EHom.20.loc = locfit(~G.EHom.20.subset, alpha=0.8, maxk=130)
+G.EHom.40.loc = locfit(~G.EHom.40.subset, alpha=0.8, maxk=130)
+
+
+plot(G.EHom.4.loc)
+
+plot(G.EHom.2.loc, xlab="Global Expected Homozygosity", ylab="Density", ylim=c(0, 50000), xlim=c(0,0.00003), col="firebrick2")
+lines(G.EHom.4.loc, col="blue1")
+lines(G.EHom.6.loc, col="green")
+lines(G.EHom.8.loc, col="orange")
+lines(G.EHom.10.loc, col="gray14")
+lines(G.EHom.20.loc, col="purple")
+lines(G.EHom.40.loc, col="deepskyblue")
+abline(v=mean.Fh.mount,lty=2) #line to show the mean Fh for the real pheasant data
+
+colours = c("firebrick2", "blue1", "green", "orange", "gray14", "purple", "deepskyblue")
+legend("topright", legend=c("G.EHom.2","G.EHom.4", "G.EHom.6","G.EHom.8","G.EHom.10","G.EHom.20","G.EHom.40"), col = colours, cex=0.8, fill= colours, bty="n")
+
+
+
+##################################################################################################################
+#ANOVA - Global EHet
+
+# y=c(G.EHet.2, G.EHet.4, G.EHet.6, G.EHet.8, G.EHet.10, G.EHet.20, G.EHet.40)
+# x=c(1,2,3,4,5,6,7)
+# x.factor =as.factor(x)
+# aov.data <- data.frame(y, x.factor) #make dataframe where x is a factor and y is numeric
+# str(aov.data) #look at dataframe
+
+
+y.aov=c(G.EHom.2.subset[1:6000], G.EHom.4.subset[1:6000], G.EHom.6.subset[1:6000], G.EHom.8.subset[1:6000], G.EHom.10.subset[1:6000], G.EHom.20.subset[1:6000], G.EHom.40.subset[1:6000])
+x.aov=c(1,2,3,4,5,6,7)
+x.factor =as.factor(x.aov)
+aov.data <- data.frame(y.aov, x.factor) #make dataframe where x is a factor and y is numeric
+str(aov.data) #look at dataframe
+
+length(G.EHet.2.subset)
+
+aov.out = aov(y.aov ~ x.factor, data=aov.data)
+summary(aov.out)
+summary.lm(aov.out)#f2 abd f3 sig
+TukeyHSD(aov.out) #all >0.05, so non sig
+
+
+# #Testing the assumptions
+# 
+# 
+# bartlett.test(y.aov ~ x.factor, data=aov.data) #Homogeneity of variance
+# #Insignificant result, therefore variances can be assumed to be equal
+# 
+# #Check the normality assumption
+# plot(aov.out, 2) #Model checking plots
+# #As all the points do not fall approximately along this reference line, we cannot assume normality.
+# 
+# #Check the homogeneity of variance assumption
+# leveneTest(y.aov ~ x.factor, data = aov.data) #p-value is less than the significance level of 0.05. This means that there is no evidence to suggest that the variance across groups is statistically significantly different. Therefore, we can assume the homogeneity of variances in the different treatment groups.
+# plot(aov.out, 1)
+# #Points ?? are detected as outliers, which can severely affect normality and homogeneity of variance. It can be useful to remove outliers to meet the test assumptions.
+# 
+# #normality test
+# shapiro.test(resid(aov.out)) # p-value < 2.2e-16
+
+
+
+#Non-parametric alternative to ANOVA:
+kruskal.test(y.aov ~ x.factor, data=aov.data)
+# p-value = 0.2958 = non significant
+
+
+
+#Dunn test
+PT = dunnTest(y.aov ~ x.factor, data=aov.data, method="bh") 
+PT = PT$res
+PT
+library(rcompanion)
+cldList(comparison = PT$Comparison,
+        p.value    = PT$P.adj,
+        threshold  = 0.05)
+
+
+
+
+##################################################################################################################
+#ANOVA - Fh
+
+
+y2=c(Fh.subset.2[1:6000], Fh.subset.4[1:6000], Fh.subset.6[1:6000], Fh.subset.8[1:6000], Fh.subset.10[1:6000], Fh.subset.20[1:6000],Fh.subset.40[1:6000])
+x2=c(1,2,3,4,5,6,7)
+x2.factor =as.factor(x2)
+aov.data.Fh <- data.frame(y2, x2.factor) #make dataframe where x is a factor and y is numeric
+str(aov.data.Fh) #look at dataframe
+
+
+aov.out.Fh = aov(y2 ~ x2.factor, data=aov.data.Fh)
+summary(aov.out.Fh)
+summary.lm(aov.out.Fh)#non sig
+TukeyHSD(aov.out.Fh)#non sig
+
+
+# #Testing the assumptions
+# 
+# bartlett.test(y2 ~ x2.factor, data=aov.data.Fh) #Homogeneity of variance
+# #Significant result, therefore variances cannot be assumed to be equal?
+# 
+# #Check the normality assumption
+# plot(aov.out.Fh, 2) #Model checking plots
+# #As all the points fall approximately along this reference line, we can assume normality.
+# 
+# #Check the homogeneity of variance assumption
+# leveneTest(y2 ~ x2.factor, data = aov.data.Fh) #p-value is not less than the significance level of 0.05. This means that there is no evidence to suggest that the variance across groups is statistically significantly different. Therefore, we can assume the homogeneity of variances in the different treatment groups.
+# plot(aov.out.Fh, 1)
+# #Points 24, 57, 62 are detected as outliers, which can severely affect normality and homogeneity of variance. It can be useful to remove outliers to meet the test assumptions.
+# 
+# #normality test
+# shapiro.test(resid(aov.out.Fh))
+# #non significant
+
+
+#Non-parametric alternative to ANOVA:
+kruskal.test(y2 ~ x2.factor, data=aov.data.Fh)
+
+
+
+logy2 <- log(1+y2)
+x2=c(1,2,3,4,5,6,7)
+x2.factor =as.factor(x2)
+aov.data.Fh.log <- data.frame(logy2, x2.factor) #make dataframe where x is a factor and y is numeric
+str(aov.data.Fh.log) #look at dataframe
+
+
+aov.out.Fh.log = aov(logy2 ~ x2.factor, data=aov.data.Fh.log)
+summary(aov.out.Fh.log)
+summary.lm(aov.out.Fh.log)#non sig
+TukeyHSD(aov.out.Fh.log)#non sig
+
+plot(aov.out.Fh.log, 2)
+
+##################################################################################################################
+#ANOVA - Fis
+
+
+y3=c(Fis.subset.2[1:6000], Fis.subset.4[1:6000], Fis.subset.6[1:6000], Fis.subset.8[1:6000], Fis.subset.10[1:6000], Fis.subset.20[1:6000],Fis.subset.40[1:6000])
+x3=c(1,2,3,4,5,6,7)
+x3.factor =as.factor(x3)
+aov.data.Fis <- data.frame(y3, x3.factor) #make dataframe where x is a factor and y is numeric
+str(aov.data.Fis) #look at dataframe
+
+aov.out.Fis = aov(y3 ~ x3.factor, data=aov.data.Fis)
+summary(aov.out.Fis)
+summary.lm(aov.out.Fis)#non sig
+TukeyHSD(aov.out.Fis)#non sig
+
+#Testing the assumptions
+# 
+# bartlett.test(y3 ~ x3.factor, data=aov.data.Fis) #Homogeneity of variance
+# #Significant result, therefore variances cannot be assumed to be equal?
+# 
+# #Check the normality assumption
+# plot(aov.out.Fis, 2) #Model checking plots
+# #As all the points fall approximately along this reference line, we can assume normality.
+# 
+# #Check the homogeneity of variance assumption
+# leveneTest(y3 ~ x3.factor, data = aov.data.Fis) #p-value is not less than the significance level of 0.05. This means that there is no evidence to suggest that the variance across groups is statistically significantly different. Therefore, we can assume the homogeneity of variances in the different treatment groups.
+# plot(aov.out.Fis, 1)
+# #Points 24, 57, 62 are detected as outliers, which can severely affect normality and homogeneity of variance. It can be useful to remove outliers to meet the test assumptions.
+# 
+# #normality test
+# shapiro.test(resid(aov.out.Fis))
+# #non significant
+
+
+
+#Non-parametric alternative to ANOVA:
+kruskal.test(y3 ~ x3.factor, data=aov.data.Fis)
+
+
+
+# ##################################################################################################################
+# #OTHER?
+# 
+# 
+# plot(fit) #x=mean.Fh and automatically: density on y
+# abline(v=0,lty=2) #line to show the mean Fh for the real pheasant data
+# 
+# d1 = locfit(~Fh.malay)
+# f= locfit(~Fh.mount)
+# plot(d1, xlab="Fh", ylab="density", xlim=c(-10^-6,-10^-4), col="red") # change the values for xlim
+# lines(f, col="blue")
+# 
+# 
+# 
+# var.overall.5 = var(mean.Fh) #mean population Fh variance=0.1495276
+# 
+# 
+# library(Rfast)
+# var.Fh=rowVars(Fh)
+# 
+# 
+# hist(Fh[,1])
+# hist(Fh[,1],freq=F)
+# lines(density(Fh))
+# lines(density(Fh[,1]))
+# lines(density(Fh[,1]),col=2)
+
+
+
+
