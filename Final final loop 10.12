@@ -1,0 +1,161 @@
+
+library(pcadapt)
+library(locfit)
+
+path_to_file2 <- "/Users/aminachabach/Project/vcftools_0.1.13/Malaysian.recode.vcf"  #Malaysian filtered vcf file
+malayphe <- read.pcadapt(path_to_file2, type = "vcf")
+malayphe
+path_to_file3 <- "/Users/aminachabach/Project/vcftools_0.1.13/mountain.recode.vcf"  #Mountain filtered vcf file
+mountyphe <- read.pcadapt(path_to_file3, type = "vcf")
+
+#calculate the observed homozygosity in terminal with '/Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --vcf mountain.recode.vcf --het'
+
+malay.het.table=read.table("/Users/aminachabach/Project/vcftools_0.1.13/malay.out.het", header = TRUE) #read terminal output into r as a table
+mount.het.table=read.table("/Users/aminachabach/Project/vcftools_0.1.13/mount.out.het", header = TRUE)
+
+
+mount.het.table
+malay.ohom.df = as.data.frame(malay.het.table$O.HOM.) #write table to dataframe so it's not a list and we can select values separately
+mount.ohom.df = as.data.frame(mount.het.table$O.HOM.)
+r.malay= nrow(malay.het.table)  #number of rows (i.e. number of individuals for the malaysain pop)
+r.mount= nrow(mount.het.table)
+
+malay.ohom.ratio = malay.ohom.df/5802 #divided by total number of loci bc need ratio
+mount.ohom.ratio = mount.ohom.df/5802
+
+malay.ehom.df = as.data.frame(malay.het.table$E.HOM.) #write table to dataframe so it's not a list and we can select values separately
+mount.ehom.df = as.data.frame(mount.het.table$E.HOM.)
+
+malay.ehom.ratio = malay.ehom.df/5802
+mount.ehom.ratio = mount.ehom.df/5802
+
+sum.malay.ehom = sum(malay.ehom.ratio)
+sum.mount.ehom = sum(mount.ehom.ratio)
+
+Fh.malay = matrix(ncol = 1, nrow= r.malay) #loop with one column and nbr of indv rows of Fh values
+for (i in 1:r.malay)
+{
+  Fh.malay[i]= (malay.ohom.ratio[i,] - sum.malay.ehom)/(5802 - sum.malay.ehom) #5802 bc that's the number of loci in the dataset
+}
+
+Fh.malay
+mean.Fh.malay=mean(Fh.malay) 
+var(Fh.malay)
+#expected much higher than observed homozygosity
+
+
+Fis.malay= 1-((malay.ohom.ratio)/sum.malay.ehom)
+Fis.malay.df = as.matrix(Fis.malay)
+Fis.malay.mean = mean(Fis.malay.df) #0.9476685
+# Fis>0 signifies more inbreeding than is expected at random,
+
+
+Fh.mount= matrix(ncol = 1, nrow= r.mount)
+for (i in 1:r.mount)
+{
+  Fh.mount[i]= (mount.ohom.ratio[i,] - sum.mount.ehom)/(5802 - sum.mount.ehom) #Fh as proxy for inbreeding
+}
+Fh.mount
+mean.Fh.mount=mean(Fh.mount)
+var(Fh.mount)
+
+hist(Fh.mount)
+
+
+Fis.mount= 1-((mount.ohom.ratio)/sum.mount.ehom)
+Fis.mount.df = as.matrix(Fis.mount)
+Fis.mount.mean = mean(Fis.mount.df)
+
+
+#~x for a density estimation model
+#x=mean.Fh and automatically: density on y
+#abline(v=0,lty=2) #line to show the mean Fh for the real pheasant data
+
+MaxMA = max(Fh.malay)
+MaxMT = max(Fh.mount)
+minMA=min(Fh.malay)
+minMT=min(Fh.mount)
+
+d1 = locfit(~Fh.malay)
+f= locfit(~Fh.mount)
+plot(d, xlab="Fh", ylab="density", xlim=c(minMA,MaxMT), ylim=c(0, 160000), col="red") # change the values for xlim
+lines(f, col="blue")
+
+hist(Fh.malay)
+hist(Fh.mount)
+
+
+
+##################################################################################################################
+# #Gene diversity = Expected heterozygosity
+#      
+# malay.ohom.ratio = malay.ohom.df/5802
+# avg.malay.ohom.ratio = sum(malay.ohom.ratio)/20
+# G.EHet.malay =1-(avg.malay.ohom.ratio) #Global heterozygosity = 1-sum of the sum of the indv. obsv. homo. divided by total number of sites
+# 
+# #sqr.malay.allelefreq= (malay.ohom.ratio)^2 #p^2
+# #G.EHet.malay =1-(sum(sqr.malay.allelefreq)/ 5802) #Global heterozygosity = 1-sum of the sum of the indv. obsv. homo. divided by total number of sites
+# 
+# 
+# mount.ohom.ratio = mount.ohom.df/5802
+# avg.mount.ohom.ratio = sum(mount.ohom.ratio)/22 #Global homozygosity
+# #sqr.mount.allelefreq= (mount.ohom.ratio)^2 #p^2
+# #G.EHet.mount =1-(sum(sqr.mount.allelefreq)/ 5802) #Global heterozygosity = 1-sum of the sum of the indv. obsv. homo. divided by total number of sites
+# G.EHet.mount =1-(avg.mount.ohom.ratio) #Global heterozygosity = 1-sum of the sum of the indv. obsv. homo. divided by total number of sites
+# 
+# 
+# 
+# plot(G.EHet.mount)
+
+
+##################################################################################################################
+#Fis Malay
+
+#calculate the observed allele frequencies in terminal with '/Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --vcf mountain.recode.vcf --het'
+
+malay.freq.table=read.csv("/Users/aminachabach/Documents/University_2018_Yr3/Project/Malay_Allele_Freq.csv", header = TRUE) #read terminal output into r as a table
+
+malay.freq.1 = as.data.frame(malay.freq.table$X.FREQ.) #write table to dataframe so it's not a list and we can select values separately
+malay.freq.0 = as.data.frame(malay.freq.table$X)
+malay.tot.allele.freq = (malay.freq.1)^2 +(malay.freq.0)^2
+
+
+malay.EHom=1-2* malay.tot.allele.freq*(1- malay.tot.allele.freq)
+malay.SEHom = sum(malay.EHom)/(nrow(malay.EHom))
+
+malay.Fis= 1-((malay.ohom.ratio)/malay.SEHom)
+
+
+##################################################################################################################
+#Fis Mount
+
+mount.freq.table=read.csv("/Users/aminachabach/Documents/University_2018_Yr3/Project/Mount_Allele_Freq.csv", header = TRUE)
+
+mount.freq.1 = as.data.frame(mount.freq.table$X.FREQ.) #write table to dataframe so it's not a list and we can select values separately
+mount.freq.0 = as.data.frame(mount.freq.table$X)
+
+mount.tot.allele.freq = (mount.freq.1)^2 +(mount.freq.0)^2
+
+mount.EHom=1-2* mount.tot.allele.freq*(1- mount.tot.allele.freq)
+mount.SEHom = sum(mount.EHom)/(nrow(mount.EHom))
+
+mount.Fis= 1-(mount.ohom.ratio/mount.SEHom)
+
+
+
+##################################################################################################################
+#Fst
+#different number of lenghts because of filtering
+allele1 = (mount.freq.1[1:5386,] + malay.freq.1)^2
+allele0 = (mount.freq.0[1:5386,] + malay.freq.0)^2
+
+HT= 1-sum(allele1+allele0)
+
+HS=
+
+
+
+
+
+
+
