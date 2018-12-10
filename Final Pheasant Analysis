@@ -13,7 +13,6 @@ mountyphe <- read.pcadapt(path_to_file3, type = "vcf")
 malay.het.table=read.table("/Users/aminachabach/Project/vcftools_0.1.13/malay.out.het", header = TRUE) #read terminal output into r as a table
 mount.het.table=read.table("/Users/aminachabach/Project/vcftools_0.1.13/mount.out.het", header = TRUE)
 
-sd(mount.het.table$F)
 
 mount.het.table
 malay.ohom.df = as.data.frame(malay.het.table$O.HOM.) #write table to dataframe so it's not a list and we can select values separately
@@ -21,7 +20,7 @@ mount.ohom.df = as.data.frame(mount.het.table$O.HOM.)
 r.malay= nrow(malay.het.table)  #number of rows (i.e. number of individuals for the malaysain pop)
 r.mount= nrow(mount.het.table)
 
-malay.ohom.ratio = malay.ohom.df/5802
+malay.ohom.ratio = malay.ohom.df/5802 #divided by total number of loci bc need ratio
 mount.ohom.ratio = mount.ohom.df/5802
 
 malay.ehom.df = as.data.frame(malay.het.table$E.HOM.) #write table to dataframe so it's not a list and we can select values separately
@@ -44,6 +43,13 @@ mean.Fh.malay=mean(Fh.malay)
 var(Fh.malay)
 #expected much higher than observed homozygosity
 
+
+Fis.malay= 1-((malay.ohom.ratio)/sum.malay.ehom)
+Fis.malay.df = as.matrix(Fis.malay)
+Fis.malay.mean = mean(Fis.malay.df) #0.9476685
+# Fis>0 signifies more inbreeding than is expected at random,
+
+
 Fh.mount= matrix(ncol = 1, nrow= r.mount)
 for (i in 1:r.mount)
 {
@@ -56,6 +62,9 @@ var(Fh.mount)
 hist(Fh.mount)
 
 
+Fis.mount= 1-((mount.ohom.ratio)/sum.mount.ehom)
+Fis.mount.df = as.matrix(Fis.mount)
+Fis.mount.mean = mean(Fis.mount.df)
 
 
 #~x for a density estimation model
@@ -78,26 +87,84 @@ hist(Fh.mount)
 
 
 ##################################################################################################################
-#Gene diversity = Expected heterozygosity
-     
-malay.ohom.ratio = malay.ohom.df/5802
-avg.malay.ohom.ratio = sum(malay.ohom.ratio)/20
-G.EHet.malay =1-(avg.malay.ohom.ratio) #Global heterozygosity = 1-sum of the sum of the indv. obsv. homo. divided by total number of sites
+# #Gene diversity = Expected heterozygosity
+#      
+# malay.ohom.ratio = malay.ohom.df/5802
+# avg.malay.ohom.ratio = sum(malay.ohom.ratio)/20
+# G.EHet.malay =1-(avg.malay.ohom.ratio) #Global heterozygosity = 1-sum of the sum of the indv. obsv. homo. divided by total number of sites
+# 
+# #sqr.malay.allelefreq= (malay.ohom.ratio)^2 #p^2
+# #G.EHet.malay =1-(sum(sqr.malay.allelefreq)/ 5802) #Global heterozygosity = 1-sum of the sum of the indv. obsv. homo. divided by total number of sites
+# 
+# 
+# mount.ohom.ratio = mount.ohom.df/5802
+# avg.mount.ohom.ratio = sum(mount.ohom.ratio)/22 #Global homozygosity
+# #sqr.mount.allelefreq= (mount.ohom.ratio)^2 #p^2
+# #G.EHet.mount =1-(sum(sqr.mount.allelefreq)/ 5802) #Global heterozygosity = 1-sum of the sum of the indv. obsv. homo. divided by total number of sites
+# G.EHet.mount =1-(avg.mount.ohom.ratio) #Global heterozygosity = 1-sum of the sum of the indv. obsv. homo. divided by total number of sites
+# 
+# 
+# 
+# plot(G.EHet.mount)
 
-#sqr.malay.allelefreq= (malay.ohom.ratio)^2 #p^2
-#G.EHet.malay =1-(sum(sqr.malay.allelefreq)/ 5802) #Global heterozygosity = 1-sum of the sum of the indv. obsv. homo. divided by total number of sites
+
+##################################################################################################################
+#Fis Malay
+
+#calculate the observed allele frequencies in terminal with '/Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --vcf mountain.recode.vcf --het'
+
+#aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --vcf Malaysian.recode.vcf --freq2
+
+malay.freq.table=read.csv("/Users/aminachabach/Documents/University_2018_Yr3/Project/Malay_Allele_Freq.csv", header = TRUE) #read terminal output into r as a table
+
+malay.freq.1 = as.data.frame(malay.freq.table$X.FREQ.) #write table to dataframe so it's not a list and we can select values separately
+malay.freq.0 = as.data.frame(malay.freq.table$X)
+malay.tot.allele.freq = (malay.freq.1)^2 +(malay.freq.0)^2
 
 
-mount.ohom.ratio = mount.ohom.df/5802
-avg.mount.ohom.ratio = sum(mount.ohom.ratio)/22 #Global homozygosity
-#sqr.mount.allelefreq= (mount.ohom.ratio)^2 #p^2
-#G.EHet.mount =1-(sum(sqr.mount.allelefreq)/ 5802) #Global heterozygosity = 1-sum of the sum of the indv. obsv. homo. divided by total number of sites
-G.EHet.mount =1-(avg.mount.ohom.ratio) #Global heterozygosity = 1-sum of the sum of the indv. obsv. homo. divided by total number of sites
+malay.EHom=1-2* malay.tot.allele.freq*(1- malay.tot.allele.freq)
+malay.SEHom = sum(malay.EHom)/(nrow(malay.EHom))
+
+malay.Fis= 1-((malay.ohom.ratio)/malay.SEHom)
+malay.fis.mean =sum(malay.Fis)/20
 
 
 
-plot(G.EHet.mount)
+##################################################################################################################
+#Fis Mount
 
+#aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --vcf mountain.recode.vcf --freq2
+
+mount.freq.table=read.csv("/Users/aminachabach/Documents/University_2018_Yr3/Project/Mount_Allele_Freq.csv", header = TRUE)
+
+mount.freq.1 = as.data.frame(mount.freq.table$X.FREQ.) #write table to dataframe so it's not a list and we can select values separately
+mount.freq.0 = as.data.frame(mount.freq.table$X)
+
+mount.tot.allele.freq = (mount.freq.1)^2 +(mount.freq.0)^2
+
+mount.EHom=1-2* mount.tot.allele.freq*(1- mount.tot.allele.freq)
+mount.SEHom = sum(mount.EHom)/(nrow(mount.EHom))
+
+mount.Fis= 1-(mount.ohom.ratio/mount.SEHom)
+mount.fis.mean =sum(mount.Fis)/22
+
+
+
+##################################################################################################################
+#Fst
+#different number of lenghts because of filtering
+allele1 = (mount.freq.1[1:5386,] + malay.freq.1)^2
+allele0 = (mount.freq.0[1:5386,] + malay.freq.0)^2
+
+HT= 1-sum(allele1+allele0)
+
+
+pop1 = (mount.freq.1[1:5386,])^2 + (mount.freq.0[1:5386,])^2
+pop2 = (malay.freq.1)^2 + (malay.freq.0)^2
+HS= 1- sum(pop1 + pop2)
+
+FST=1-(HS/2)/(HT/2) #We don't need two divide HT and HS by the number of populations because this number is going to be removed in the in the FST formula.
+FST=1-HS/HT
 
 
 
