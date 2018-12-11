@@ -1,0 +1,304 @@
+eduroam-249-72:vcftools_0.1.13 aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --vcf Malaysian.recode.vcf --plink --out malayplink.data
+
+VCFtools - v0.1.13
+(C) Adam Auton and Anthony Marcketta 2009
+
+Parameters as interpreted:
+	--vcf Malaysian.recode.vcf
+	--out malayplink.data
+	--plink
+
+After filtering, kept 20 out of 20 Individuals
+Writing PLINK PED and MAP files ... 
+
+Unrecognized values used for CHROM: locus_7 - Replacing with 0.
+eduroam-249-72:vcftools_0.1.13 aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --file malayplink.data.log -het
+
+
+Error: Unknown option: --file
+
+eduroam-249-72:vcftools_0.1.13 aminachabach$  /Users/aminachabach/Project/vcftools_0.1.13/plink-1.07-mac-intel/plink --file malayplink.data --het
+
+@----------------------------------------------------------@
+|        PLINK!       |     v1.07      |   10/Aug/2009     |
+|----------------------------------------------------------|
+|  (C) 2009 Shaun Purcell, GNU General Public License, v2  |
+|----------------------------------------------------------|
+|  For documentation, citation & bug-report instructions:  |
+|        http://pngu.mgh.harvard.edu/purcell/plink/        |
+@----------------------------------------------------------@
+
+Web-based version check ( --noweb to skip )
+Connecting to web... 
+--noweb
+ failed connection      
+
+Problem connecting to web
+
+Writing this text to log file [ plink.log ]
+Analysis started: Tue Dec 11 15:22:25 2018
+
+Options in effect:
+	--file malayplink.data
+	--het
+
+5764 (of 5764) markers to be included from [ malayplink.data.map ]
+Warning, found 20 individuals with ambiguous sex codes
+These individuals will be set to missing ( or use --allow-no-sex )
+Writing list of these individuals to [ plink.nosex ]
+20 individuals read from [ malayplink.data.ped ] 
+0 individuals with nonmissing phenotypes
+Assuming a disease phenotype (1=unaff, 2=aff, 0=miss)
+Missing phenotype value is also -9
+0 cases, 0 controls and 20 missing
+0 males, 0 females, and 20 of unspecified sex
+Before frequency and genotyping pruning, there are 5764 SNPs
+20 founders and 0 non-founders found
+378 SNPs with no founder genotypes observed
+Warning, MAF set to 0 for these SNPs (see --nonfounders)
+Writing list of these SNPs to [ plink.nof ]
+Total genotyping rate in remaining individuals is 0.715415
+0 SNPs failed missingness test ( GENO > 1 )
+0 SNPs failed frequency test ( MAF < 0 )
+After frequency and genotyping pruning, there are 5764 SNPs
+After filtering, 0 cases, 0 controls and 20 missing
+After filtering, 0 males, 0 females, and 20 of unspecified sex
+
+ **Warning** this analysis typically requires whole-genome level data
+             to give accurate results 
+
+Converting data to Individual-major format
+Writing individual heterozygosity information to [ plink.het ] 
+
+Analysis finished: Tue Dec 11 15:22:26 2018
+
+
+
+
+
+library(pcadapt)
+library(locfit)
+
+path_to_file2 <- "/Users/aminachabach/Project/vcftools_0.1.13/Malaysian.recode.vcf"  #Malaysian filtered vcf file
+malayphe <- read.pcadapt(path_to_file2, type = "vcf")
+
+path_to_file3 <- "/Users/aminachabach/Project/vcftools_0.1.13/mountain.recode.vcf"  #Mountain filtered vcf file
+mountyphe <- read.pcadapt(path_to_file3, type = "vcf")
+
+
+
+#--het computes observed and expected autosomal homozygous genotype counts for each sample, and reports method-of-moments F coefficient estimates (i.e. ([observed hom. count] - [expected count]) / ([total observations] - [expected count])) to plink.het.
+
+##################################################################################################################
+#Calculate Fh from PLINK for Malaysian Pheasants
+
+malay.het.table=read.table("/Users/aminachabach/Project/vcftools_0.1.13/malay.out.het", header = TRUE) #read terminal output into r as a table
+
+# #Calculate observed homozygosity
+# malay.ohom.df = as.data.frame(malay.het.table$O.HOM.) #write table to dataframe so it's not a list and we can select values separately
+# r.malay= nrow(malay.het.table)  #number of rows (i.e. number of individuals for the malaysain pop)
+# malay.ohom.ratio = malay.ohom.df/5802 #divided by total number of loci bc need ratio
+# 
+# #Calculate expected homozygosity
+# malay.ehom.df = as.data.frame(malay.het.table$E.HOM.) #write table to dataframe so it's not a list and we can select values separately
+# malay.ehom.ratio = malay.ehom.df/5802
+# sum.malay.ehom = sum(malay.ehom.ratio)/20 #mean not sum bc hardy
+# 
+# #Calculate Fh
+# Fh.malay = matrix(ncol = 1, nrow= r.malay) #loop with one column and nbr of indv rows of Fh values
+# for (i in 1:r.malay)
+# {
+#   Fh.malay[i]= (malay.ohom.ratio[i,] - sum.malay.ehom)/(5802 - sum.malay.ehom) #5802 bc that's the number of loci in the dataset
+# }
+# 
+# #Calculate Fh from PLINK
+# Fh.malay
+# mean.Fh.malay=mean(Fh.malay) 
+# median.Fh
+# var(Fh.malay)
+# #expected much higher than observed homozygosity
+
+Fh.malay.df = as.data.frame(malay.het.table$F)
+mean.Fh.malay.df = sum(Fh.malay.df)/20
+var(Fh.malay.df)
+
+##################################################################################################################
+#Calculate Fh from PLINK for Mountain Pheasant
+
+mount.het.table=read.table("/Users/aminachabach/Project/vcftools_0.1.13/mount.out.het", header = TRUE)
+
+# #Calculate observed homozygosity
+# mount.ohom.df = as.data.frame(mount.het.table$O.HOM.)
+# r.mount= nrow(mount.het.table)
+# mount.ohom.ratio = mount.ohom.df/5802
+# 
+# #Calculate expected homozygosity
+# mount.ehom.df = as.data.frame(mount.het.table$E.HOM.)
+# mount.ehom.ratio = mount.ehom.df/5802
+# sum.mount.ehom = sum(mount.ehom.ratio)/22
+# 
+# #Calculate Fh
+# Fh.mount= matrix(ncol = 1, nrow= r.mount)
+# for (i in 1:r.mount)
+# {
+#   Fh.mount[i]= (mount.ohom.ratio[i,] - sum.mount.ehom)/(5802 - sum.mount.ehom) #Fh as proxy for inbreeding
+# }
+# Fh.mount
+# mean.Fh.mount=mean(Fh.mount)
+# median.Fh.mount=median(Fh.mount)
+# var(Fh.mount) 
+
+
+Fh.mount.df = as.data.frame(mount.het.table$F)
+mean.Fh.mount.df = sum(Fh.mount.df)/20
+var(Fh.mount.df)
+
+
+
+plot(Fh.mount)
+
+hist(Fh.mount)
+hist(Fh.malay)
+
+# Fis.mount= 1-((mount.ohom.ratio)/sum.mount.ehom)
+# Fis.mount.df = as.matrix(Fis.mount)
+# Fis.mount.mean = mean(Fis.mount.df)
+
+##################################################################################################################
+#Calculate Fis for Malaysian Pheasants 
+
+
+#calculate the observed allele frequencies in terminal with '/Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --vcf mountain.recode.vcf --het'
+# 
+# #aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --vcf Malaysian.recode.vcf --freq2
+# 
+# malay.freq.table=read.csv("/Users/aminachabach/Documents/University_2018_Yr3/Project/Malay_Allele_Freq.csv", header = TRUE) #read terminal output into r as a table
+# 
+# #Calculate Expected Heterozygosity
+# #He = expected heterozygosity = 1 − Sum pi^2.
+# 
+# malay.freq.1 = as.data.frame(malay.freq.table$X.FREQ.) #write table to dataframe so it's not a list and we can select values separately
+# malay.freq.0 = as.data.frame(malay.freq.table$X)
+# malay.tot.allele.freq = (malay.freq.1)^2 +(malay.freq.0)^2
+# 
+# # malay.EHom=1-2* malay.tot.allele.freq*(1- malay.tot.allele.freq)
+# # malay.SEHom = sum(malay.EHom)/(nrow(malay.EHom))
+# 
+# 
+# 
+# mount.het.table=read.table("/Users/aminachabach/Project/vcftools_0.1.13/mount.out.het", header = TRUE)
+# 
+# 
+# 
+# 
+# #Calculate Observed Heterozygosity
+# #Ho = observed heterozygosity = no. of Hets/N.
+# 
+# mount.ehet.ratio = 1-mount.ehom.ratio
+#   
+# # malay.Fis= 1-((malay.ohom.ratio)/malay.SEHom)
+# # malay.fis.mean =sum(malay.Fis)/20
+# 
+# malay.Fis= 1-((mount.ehet.ratio)/malay.SEHet)
+# malay.fis.mean =sum(malay.Fis)/20
+
+
+malay.het.table=read.table("/Users/aminachabach/Project/vcftools_0.1.13/malay.out.het", header = TRUE) #read terminal output into r as a table
+
+#Calculate observed heterozygosity
+malay.ohom.df = as.data.frame(malay.het.table$O.HOM.)
+malay.ratios.df = as.data.frame(malay.het.table$N_SITES)
+malay.ohom.ratio.fis = malay.ohom.df/malay.ratios.df
+malay.ohet.ratio.fis = 1- malay.ohom.ratio.fis
+
+#Calculate expected heterozygosity
+malay.ehom.df = as.data.frame(malay.het.table$E.HOM.)
+malay.ratios.df = as.data.frame(malay.het.table$N_SITES)
+malay.ehom.ratio.fis = malay.ehom.df/malay.ratios.df
+malay.ehet.ratio.fis = 1- malay.ehom.ratio.fis
+
+#Calculate Fis
+malay.Fis= 1-((malay.ohet.ratio.fis)/malay.ehet.ratio.fis)
+malay.fis.mean =sum(malay.Fis)/20
+
+
+
+
+##################################################################################################################
+#Fis Mount
+
+# #aminachabach$ /Users/aminachabach/Project/vcftools_0.1.13/bin/vcftools --vcf mountain.recode.vcf --freq2
+# 
+# mount.freq.table=read.csv("/Users/aminachabach/Documents/University_2018_Yr3/Project/Mount_Allele_Freq.csv", header = TRUE)
+# 
+# mount.freq.1 = as.data.frame(mount.freq.table$X.FREQ.) #write table to dataframe so it's not a list and we can select values separately
+# mount.freq.0 = as.data.frame(mount.freq.table$X)
+# 
+# mount.tot.allele.freq = (mount.freq.1)^2 +(mount.freq.0)^2
+# 
+# mount.EHom=1-2* mount.tot.allele.freq*(1- mount.tot.allele.freq)
+# mount.SEHom = sum(mount.EHom)/(nrow(mount.EHom))
+# 
+# mount.Fis= 1-(mount.ohom.ratio/mount.SEHom)
+# mount.fis.mean =sum(mount.Fis)/22
+
+mount.het.table=read.table("/Users/aminachabach/Project/vcftools_0.1.13/mount.out.het", header = TRUE)
+
+#Calculate observed heterozygosity
+mount.ohom.df = as.data.frame(mount.het.table$O.HOM.)
+mount.ratios.df = as.data.frame(mount.het.table$N_SITES)
+mount.ohom.ratio.fis = mount.ohom.df/mount.ratios.df
+mount.ohet.ratio.fis = 1- mount.ohom.ratio.fis
+
+#Calculate expected heterozygosity
+mount.ehom.df = as.data.frame(mount.het.table$E.HOM.)
+mount.ratios.df = as.data.frame(mount.het.table$N_SITES)
+mount.ehom.ratio.fis = mount.ehom.df/mount.ratios.df
+mount.ehet.ratio.fis = 1- mount.ehom.ratio.fis
+
+#Calculate Fis
+mount.Fis= 1-((mount.ohet.ratio.fis)/mount.ehet.ratio.fis)
+mount.fis.mean =sum(mount.Fis)/22
+
+##################################################################################################################
+#Fst
+
+#CAlculate allele frequencies
+mount.freq.table=read.csv("/Users/aminachabach/Documents/University_2018_Yr3/Project/Mount_Allele_Freq.csv", header = TRUE)
+mount.freq.1 = as.data.frame(mount.freq.table$X.FREQ.) #write table to dataframe so it's not a list and we can select values separately
+mount.freq.0 = as.data.frame(mount.freq.table$X)
+
+malay.freq.table=read.csv("/Users/aminachabach/Documents/University_2018_Yr3/Project/Malay_Allele_Freq.csv", header = TRUE) #read terminal output into r as a table
+malay.freq.1 = as.data.frame(malay.freq.table$X.FREQ.) #write table to dataframe so it's not a list and we can select values separately
+malay.freq.0 = as.data.frame(malay.freq.table$X)
+
+#different number of lenghts because of filtering
+allele1 = (mount.freq.1[1:5386,] + malay.freq.1)^2
+allele0 = (mount.freq.0[1:5386,] + malay.freq.0)^2
+
+#Calculate HT
+HT= 1-sum(allele1+allele0)
+
+#Calculate HS
+pop1 = (mount.freq.1[1:5386,])^2 + (mount.freq.0[1:5386,])^2
+pop2 = (malay.freq.1)^2 + (malay.freq.0)^2
+HS= 1- sum(pop1 + pop2)
+
+#Calculate FST
+FST=1-(HS/2)/(HT/2) #We don't need two divide HT and HS by the number of populations because this number is going to be removed in the in the FST formula.
+FST=1-HS/HT
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
