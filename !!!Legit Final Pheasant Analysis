@@ -1,0 +1,174 @@
+library(pcadapt)
+library(locfit)
+library(adegenet)
+
+path_to_file2 <- "/Users/aminachabach/Project/vcftools_0.1.13/Malaysian.recode.vcf"  #Malaysian filtered vcf file
+malayphe <- read.pcadapt(path_to_file2, type = "vcf")
+
+path_to_file3 <- "/Users/aminachabach/Project/vcftools_0.1.13/mountain.recode.vcf"  #Mountain filtered vcf file
+mountyphe <- read.pcadapt(path_to_file3, type = "vcf")
+
+
+
+#--het computes observed and expected autosomal homozygous genotype counts for each sample, and reports method-of-moments F coefficient estimates (i.e. ([observed hom. count] - [expected count]) / ([total observations] - [expected count])) to plink.het.
+
+#Fh from PLINK for Malaysian Pheasants##################################################################################################################
+
+
+malay.het.table=read.table("/Users/aminachabach/Project/vcftools_0.1.13/malay.out.het", header = TRUE) #read terminal output into r as a table
+
+Fh.malay.df = as.data.frame(malay.het.table$F)
+mean.Fh.malay.df = sum(Fh.malay.df)/20
+var(Fh.malay.df)
+
+
+#Fh from PLINK for Mountain Pheasant##################################################################################################################
+
+mount.het.table=read.table("/Users/aminachabach/Project/vcftools_0.1.13/mount.out.het", header = TRUE)
+
+Fh.mount.df = as.data.frame(mount.het.table$F)
+mean.Fh.mount.df = sum(Fh.mount.df)/20
+var(Fh.mount.df)
+
+
+
+plot(Fh.mount)
+
+hist(Fh.mount)
+hist(Fh.malay)
+
+# Fis.mount= 1-((mount.ohom.ratio)/sum.mount.ehom)
+# Fis.mount.df = as.matrix(Fis.mount)
+# Fis.mount.mean = mean(Fis.mount.df)
+
+
+#Fis Malay##################################################################################################################
+
+
+
+malay.het.table=read.table("/Users/aminachabach/Project/vcftools_0.1.13/malay.out.het", header = TRUE) #read terminal output into r as a table
+
+#Calculate observed heterozygosity
+malay.ohom.df = as.data.frame(malay.het.table$O.HOM.)
+malay.ratios.df = as.data.frame(malay.het.table$N_SITES)
+malay.ohom.ratio.fis = malay.ohom.df/malay.ratios.df
+malay.ohet.ratio.fis = 1- malay.ohom.ratio.fis
+#malay.ohet.sum = sum(malay.ohet.ratio.fis)
+
+
+#Calculate expected heterozygosity
+malay.ehom.df = as.data.frame(malay.het.table$E.HOM.)
+malay.ratios.df = as.data.frame(malay.het.table$N_SITES)
+malay.ehom.ratio.fis = malay.ehom.df/malay.ratios.df
+malay.ehet.ratio.fis = 1- malay.ehom.ratio.fis
+#malay.ehet.sum = sum(malay.ehet.ratio.fis)
+
+
+#Calculate Fis
+malay.Fis= 1-((malay.ohet.ratio.fis)/malay.ehet.ratio.fis)
+#malay.Fis= 1-((malay.ohet.sum)/malay.ehet.sum)
+
+
+malay.fis.mean =sum(malay.Fis)/20
+var(malay.Fis)
+
+
+
+#Fis Mount##################################################################################################################
+
+
+mount.het.table=read.table("/Users/aminachabach/Project/vcftools_0.1.13/mount.out.het", header = TRUE)
+
+#Calculate observed heterozygosity
+mount.ohom.df = as.data.frame(mount.het.table$O.HOM.)
+mount.ratios.df = as.data.frame(mount.het.table$N_SITES)
+mount.ohom.ratio.fis = mount.ohom.df/mount.ratios.df
+mount.ohet.ratio.fis = 1- mount.ohom.ratio.fis
+
+#Calculate expected heterozygosity
+mount.ehom.df = as.data.frame(mount.het.table$E.HOM.)
+mount.ratios.df = as.data.frame(mount.het.table$N_SITES)
+mount.ehom.ratio.fis = mount.ehom.df/mount.ratios.df
+mount.ehet.ratio.fis = 1- mount.ehom.ratio.fis
+mean(mount.ehet.ratio)
+
+
+#Calculate Fis
+mount.Fis= 1-((mount.ohet.ratio.fis)/mount.ehet.ratio.fis)
+mount.fis.mean =sum(mount.Fis)/22
+var(mount.Fis)
+
+
+#Fh and Fis Boxplot for Mount and Malay##################################################################################################################
+
+
+par(mfrow=c(1,2))
+list.phe= c(Fh.malay.df, Fh.mount.df)
+boxplot(list.phe, xaxt = "n", xlab='Pheasant Species', ylab="Fh", col= "ghostwhite")
+axis(1, at=1:2, labels=c("Malaysian", "Mountain"))
+
+list.fis.phe= c(malay.Fis, mount.Fis)
+boxplot(list.fis.phe, xaxt = "n", xlab='Pheasant Species', ylab="Fis", col= "ghostwhite")
+axis(1, at=1:2, labels=c("Malaysian", "Mountain"))
+par(mfrow=c(1,1))
+
+
+#FST calculation##################################################################################################################
+
+
+#CAlculate allele frequencies
+mount.freq.table=read.csv("/Users/aminachabach/Documents/University_2018_Yr3/Project/Mount_Allele_Freq.csv", header = TRUE)
+mount.freq.1 = as.data.frame(mount.freq.table$X.FREQ.) #write table to dataframe so it's not a list and we can select values separately
+mount.freq.0 = as.data.frame(mount.freq.table$X)
+
+malay.freq.table=read.csv("/Users/aminachabach/Documents/University_2018_Yr3/Project/Malay_Allele_Freq.csv", header = TRUE) #read terminal output into r as a table
+malay.freq.1 = as.data.frame(malay.freq.table$X.FREQ.) #write table to dataframe so it's not a list and we can select values separately
+malay.freq.0 = as.data.frame(malay.freq.table$X)
+
+#different number of lenghts because of filtering
+allele1 = (mount.freq.1[1:5386,] + malay.freq.1)^2
+allele0 = (mount.freq.0[1:5386,] + malay.freq.0)^2
+
+#Calculate HT
+HT= 1-sum(allele1+allele0)
+
+#Calculate HS
+pop1 = (mount.freq.1[1:5386,])^2 + (mount.freq.0[1:5386,])^2
+pop2 = (malay.freq.1)^2 + (malay.freq.0)^2
+HS= 1- sum(pop1 + pop2)
+
+#Calculate FST
+FST=1-(HS/2)/(HT/2) #We don't need two divide HT and HS by the number of populations because this number is going to be removed in the in the FST formula.
+FST=1-HS/HT
+
+
+
+##################################################################################################################
+
+
+
+malay.stru= read.structure("/Users/aminachabach/Project/vcftools_0.1.13/msdir/MA2.stru")
+library(hierfstat)
+
+basic.stats(malay.stru)
+basic.stats(MT)  
+
+
+
+MT <- read.structure("/Users/aminachabach/Project/vcftools_0.1.13/msdir/MT.stru") 
+MA <- read.structure("/Users/aminachabach/Project/vcftools_0.1.13/msdir/MA.stru") 
+
+basic.stats(MT)
+
+pops2 <- seppop(MT)
+basic.stats(pop2)
+
+
+MT.stats <- basic.stats(genind2hierfstat(MT, pop=MT@pop), diploid=T)  ## calculate stats per species
+summary(WPA63.stats)  ## look at some of the data
+summary(WPA63.stats$overall)
+summary(WPA63.stats$pop.freq)  ## allele frequency per population. 
+
+
+
+
