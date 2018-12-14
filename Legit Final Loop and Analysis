@@ -1,0 +1,607 @@
+library(scrm)
+library(stringr)
+library(locfit)
+library(carData)
+library(car)
+library(Rfast)
+library(FSA)
+
+sessionInfo()
+
+#Kardos et al. 2015. He describes two measures of homozygosity - one where you look only at the minor allele frequency, and one where you look at both the minor and major alleles across the population. Kardos et al. 2015 (and everyone who uses PLINK to calculate homozygosity) uses the prior method: 
+#sum of (1-2p(1-p))
+#where p is the minor allele frequency at locus 1 across the whole population. 
+
+
+
+#First we vdescribed our variables:
+nhap=40#2*number of samples i.e. number of pheasante in real data (bc diploid) 
+#2 seperate simulations, one for malaysian (20 indv) and mountain (22 indv)
+nrep=1000#min 100, 1000 if fast enough
+bp=1000000
+N0=500 #effective population ≠ census size, mention in report!
+T1=150/(4*(N0)) #time at bottleneck
+N1=5 #pop at bottlneck
+N2=150000 #ancestral pop
+G=-(1/T1)*log(N1/(N0)) #exponential growth rate after bottleneck
+a2=0 #exponential/constant growth rate in ancestral pop
+theta0=4*(N0)*(1.33*10^-9)*bp #with 1.33*10^-9 = mutationrate per yer (=generation) per locus
+p=N1/N2 #pop proportion at bottleneck (bottleneck/ancestral pop)
+r = 0.03 #crossover probability between the two ends of the locus bc 3cM/Mb = 0.03% chance of crossover in the region
+rho = 4*r*N0 #recombination rate
+
+#mimic real data
+#if  this happens (object has no variables), do heterozygosity
+#with small seq by chance th eprobabilty of having a varient is v low ( all indv the same) 
+
+Fh = matrix(ncol = nrep,nrow=nhap/2) #make columns for each iteration, with the number of rows = nbr of inividuals
+#Fh calculated with only minor allele frequency (see Keller et al.)
+
+for(a in 1:nrep) #loop it nrep times
+{
+  command = paste(nhap, 1, "-t",theta0, "-G",G, "-eG",T1,a2, "-eN",T1,p, "-r",rho,bp , "-print-model")
+  scrm.data<-scrm(command, file="test1")
+  write.table(scrm.data, file = paste("tabledata",a, ".txt",sep = "")) #write a table for each loop and paste file in directory
+  
+  scrm.df=as.data.frame(scrm.data) #coerce to class data.frame
+  
+  if(dim(scrm.df)[2]==0){ #bc low mutation rate sometimes no variants; to avoid this, tell loop to make G.EHet and Fh equal 0 if the dimensions of the columns [2] of scrm.df are 0 (bc if dim = 0 that means no diversity which means there is no heterozygosity, only homozygosity)
+    
+    Fh[,a]<-1 #high values = inbreeding (more homozygotes), i.e. no variation and range form -1 to 1
+  
+  }
+  
+  else{#if the dim ≠ 0 then just rin loop normally
+    
+    shuffled.data <- scrm.df[sample(nrow(scrm.df)),] #shuffle the rows
+    shuffled.matrix <- data.matrix(shuffled.data, rownames.force = NA) #Convert a Data Frame to a Numeric Matrix
+    diploid.data <- rowsum(shuffled.matrix, as.integer(gl(nrow(shuffled.matrix), 2, nrow(shuffled.matrix)))) #combine 2 rows into 1 (haploid into diploid)
+    named.diploid <- ifelse(diploid.data %% 2 == 0,"Hom","Het") #if dividable by 2 and remainder 0, then name "Hom", if not name "Het"
+    
+    ncol(shuffled.matrix)*nrow(shuffled.matrix)
+    n.loci <- ncol(shuffled.matrix)
+    #number of loci (i.e. segsites, i.e. SNPs?)
+    
+    #Calculate O(Hom) across all SNPs per individual
+    Hom_per_row = numeric() #Homozygosity per colum by counting the "Hom"s
+    for (i in 1:nhap/2)#nbr of rows, that's how many individuals we have
+    {
+      Hom_per_row[i] = sum(str_count(named.diploid[i,], "Hom"))#/n.loci #number of hom divided by number of loci (frequency of hom per number of loci)
+    }
+    #is the observed number of homozygous loci for the ith individual
+    #number of hom divided by number of loci (frequency of hom per number of loci) 
+    
+    #Calculate E(Hom) for all individuals in the sample i.e. across the population
+    M1_per_col = numeric() #allele frequency of 1s
+    M0_per_col = numeric() #allele frequency of 0s
+    maf = numeric() #minor allele frequency (See Puncell)
+    EHom = numeric() #Expected Homozygosity
+    SEHom = (numeric)
+    for (i in 1:n.loci) #calculations per loci (i.e. columns) not individuals
+    #pi (=maf) is the MAF for SNPs i = 1, ... , n.loci.
+    #count number of ones and zeros and depending on which is smaller use that one to calculate the minor allele frequency
+    {
+      M1_per_col[i] = sum(str_count(shuffled.matrix[,i], "1")) #count all the 1 (=mutation, whereas 0 are the ancestral state) for each segsite
+      M0_per_col[i] = sum(str_count(shuffled.matrix[,i], "0")) 
+      if (M1_per_col[i] >=  M0_per_col[i]) {  #if number of M1 > M0, then use M0 as the minor allele ferquency
+        maf[i]=M0_per_col[i]/nhap #number of hom per column, divided by total number of rows (2*individuals), so maf per loci
+        EHom[i]=1-(2*maf[i]*(1-maf[i]))  #expected homozygosity per locus across the whole population
+      } else {
+        maf[i]=M1_per_col[i]/nhap #number of hom per column, divided by total number of rows (2*individuals), so maf per loci
+        EHom[i]=1-(2*maf[i]*(1-maf[i]))  #expected homozygosity per locus across the whole population
+      }
+    }
+    
+    SEHom = sum(EHom)/20 # expected mean number of homozygous genotypes across m loci per indivual/across the population
+    #leave you with one value
+  
+    Fh[,a]= (Hom_per_row-(SEHom))/(n.loci-SEHom) #Fh as proxy for inbreeding
+     # mean(Fh)
+     # max(Fh)
+     # min(Fh)
+     # hist(Fh)
+    
+    #Fh between -1 and 1 ??
+    #if (Hom_per_row-SEHom) = (n.loci-SEHom), i.e. Hom_per_row = n.loci, then Fh = 1 
+    #negative when Hom_per_row < SEHom and 
+ 
+
+  }
+}
+
+
+#write about how x % of the simualations had no diversity (where Fh = 0, get rif pf these)
+
+#150 gen data##################################################################################################################
+#Save Fh values for 150 gen - DO NOT OVERWRITE
+
+# Fh.5.sim.o = Fh
+# Fh.10.sim.o = Fh
+# Fh.25.sim.o = Fh
+# Fh.50.sim.o = Fh
+# Fh.100.sim.o = Fh
+# Fh.250.sim.o = Fh
+# Fh.500.sim.o = Fh
+
+#Write into csv (don't forget the .csv tail of the file)
+getwd()#see what directory you're in/where it'll write the files
+write.csv(Fh.5.sim.o, file="bob.150.gen.5.csv")
+write.csv(Fh.10.sim.o, file="bob.150.gen.10.csv")
+write.csv(Fh.25.sim.o, file="bob.150.gen.25.csv")
+write.csv(Fh.50.sim.o, file="bob.150.gen.50.csv")
+write.csv(Fh.100.sim.o, file="bob.150.gen.100.csv")
+write.csv(Fh.250.sim.o, file="bob.150.gen.250.csv")
+write.csv(Fh.500.sim.o, file="bob.150.gen.500.csv")
+
+a=read.csv("/Users/aminachabach/Project/bob.150.gen.10.csv")
+col.a=colMeans(a)
+mean(col.a)
+
+
+#mean Fh per iteration (col = iteration)
+Fh.means.5.o=colMeans(Fh.5.sim.o) 
+Fh.means.10.o=colMeans(Fh.10.sim.o)
+Fh.means.25.o=colMeans(Fh.25.sim.o)
+Fh.means.50.o=colMeans(Fh.50.sim.o)
+Fh.means.100.o=colMeans(Fh.100.sim.o)
+Fh.means.250.o=colMeans(Fh.250.sim.o)
+Fh.means.500.o=colMeans(Fh.500.sim.o)
+
+
+mean(Fh.means.5.o)
+mean(Fh.means.10.o)
+mean(Fh.means.25.o)
+mean(Fh.means.50.o)
+mean(Fh.means.100.o)
+mean(Fh.means.250.o)
+mean(Fh.means.500.o)
+
+Fis.5.var = var(Fh.means.5.o)
+Fis.10.var = var(Fh.means.10.o)
+Fis.25.var = var(Fh.means.25.o)
+Fis.50.var = var(Fh.means.50)
+Fis.100.var = var(Fh.means.100)
+Fis.250.var = var(Fh.means.250)
+Fis.500.var = var(Fh.means.500)
+
+#Use the locfit function for nicer curves
+Fh.5.loc.f.o=locfit(~Fh.means.5.o, alpha = 0.9)#, maxk=130, alpha = 0.9) #~x for a density estimation model
+Fh.10.loc.f.o=locfit(~Fh.means.10.o, alpha = 0.9)#, maxk=130, alpha = 0.9) 
+Fh.25.loc.f.o=locfit(~Fh.means.25.o, alpha = 0.9)#, maxk=130, alpha = 0.9) 
+Fh.50.loc.f.o=locfit(~Fh.means.50.o, alpha = 0.9)#, maxk=130, alpha = 0.9) 
+Fh.100.loc.f.o=locfit(~Fh.means.100.o, alpha = 0.9)#, maxk=130, alpha = 0.9) 
+Fh.250.loc.f.o=locfit(~Fh.means.250.o, alpha = 0.9)#, maxk=130, alpha = 0.9) 
+Fh.500.loc.f.o=locfit(~Fh.means.500.o, alpha = 0.9)#, maxk=130, alpha = 0.9) 
+
+
+
+#50 gen data##################################################################################################################
+#Read in Bobbie's 50 gen data
+
+Fh.5.sim = read.csv("/Users/aminachabach/Project/FH.5.sim.50.csv", row.names = 1)
+Fh.10.sim = read.csv("/Users/aminachabach/Project/FH.10.sim.50.csv", row.names = 1)
+Fh.25.sim = read.csv("/Users/aminachabach/Project/FH.25.sim.50.csv", row.names = 1)
+Fh.50.sim = read.csv("/Users/aminachabach/Project/FH.50.sim.50.csv", row.names = 1)
+Fh.100.sim = read.csv("/Users/aminachabach/Project/FH.100.sim.50.csv", row.names = 1)
+Fh.250.sim = read.csv("/Users/aminachabach/Project/FH.250.sim.50.csv", row.names = 1)
+Fh.500.sim = read.csv("/Users/aminachabach/Project/FH.500.sim.50.csv", row.names = 1)
+
+#mean Fh per iteration (col = iteration)
+Fh.means.5=colMeans(Fh.5.sim) 
+Fh.means.10=colMeans(Fh.10.sim)
+Fh.means.25=colMeans(Fh.25.sim)
+Fh.means.50=colMeans(Fh.50.sim)
+Fh.means.100=colMeans(Fh.100.sim)
+Fh.means.250=colMeans(Fh.250.sim)
+Fh.means.500=colMeans(Fh.500.sim)
+     
+Fis.5.var = var(Fh.means.5)
+Fis.10.var = var(Fh.means.10)
+Fis.25.var = var(Fh.means.25)
+Fis.50.var = var(Fh.means.50)
+Fis.100.var = var(Fh.means.100)
+Fis.250.var = var(Fh.means.250)
+Fis.500.var = var(Fh.means.500)
+
+#Use the locfit function for nicer curves
+Fh.5.loc.f=locfit(~Fh.means.5, alpha = 0.9)#, maxk=130, alpha = 0.9) #~x for a density estimation model
+Fh.10.loc.f=locfit(~Fh.means.10, alpha = 0.9)#, maxk=130, alpha = 0.9) 
+Fh.25.loc.f=locfit(~Fh.means.25, alpha = 0.9)#, maxk=130, alpha = 0.9) 
+Fh.50.loc.f=locfit(~Fh.means.50, alpha = 0.9)#, maxk=130, alpha = 0.9) 
+Fh.100.loc.f=locfit(~Fh.means.100, alpha = 0.9)#, maxk=130, alpha = 0.9) 
+Fh.250.loc.f=locfit(~Fh.means.250, alpha = 0.9)#, maxk=130, alpha = 0.9) 
+Fh.500.loc.f=locfit(~Fh.means.500, alpha = 0.9)#, maxk=130, alpha = 0.9) 
+
+
+#Plot Fh curves with 50 vs 150 generation##################################################################################################################
+
+#Calculate mean and medians of the iterations for the abline
+#mean of all the colmeans of the different founder sizes across iterations
+mean.50= mean(c(Fh.means.5,Fh.means.10,Fh.means.25,Fh.means.50,Fh.means.100,Fh.means.250,Fh.means.500))
+mean.150=mean(c(Fh.means.5.o,Fh.means.10.o,Fh.means.25.o,Fh.means.50.o,Fh.means.100.o,Fh.means.250.o,Fh.means.500.o))
+#median of all the colmeans of the different founder sizes across iterations
+median.50= median(c(Fh.means.5,Fh.means.10,Fh.means.25,Fh.means.50,Fh.means.100,Fh.means.250,Fh.means.500))
+median.150=median(c(Fh.means.5.o,Fh.means.10.o,Fh.means.25.o,Fh.means.50.o,Fh.means.100.o,Fh.means.250.o,Fh.means.500.o))
+
+#Plot the curves
+
+par(mfrow=c(1,2))
+plot(NULL, xlab="Fh", ylab="Density", xlim=c(0.3,1), ylim=c(0, 20))
+lines(Fh.5.loc.f, col="firebrick2", lwd=1.25)
+lines(Fh.10.loc.f, col="blue1", lwd=1.25)
+lines(Fh.25.loc.f, col="green", lwd=1.25)
+lines(Fh.50.loc.f, col="orange", lwd=1.25)
+lines(Fh.100.loc.f, col="gray14", lwd=1.25)
+lines(Fh.250.loc.f, col="purple", lwd=1.25)
+lines(Fh.500.loc.f, col="deepskyblue", lwd=1.25)
+abline(v=mean.50,lty=2) #line to show the mean Fh for the real pheasant data
+#abline(v=median.50,lty=3) #line to show the mean Fh for the real pheasant data
+colours = c("firebrick2", "blue1", "green", "orange", "gray14", "purple", "deepskyblue")
+#legend("topleft", legend=c("Fh.5","Fh.10", "Fh.25","Fh.50","Fh.100","Fh.250","Fh.500"), col = colours, cex=0.8, fill= colours, bty="n")
+
+plot(NULL, xlab="Fh", ylab="Density", xlim=c(0.3,1), ylim=c(0, 20))
+lines(Fh.5.loc.f.o, col="firebrick2", lwd=1.25)
+lines(Fh.10.loc.f.o, col="blue1", lwd=1.25)
+lines(Fh.25.loc.f.o, col="green", lwd=1.25)
+lines(Fh.50.loc.f.o, col="orange", lwd=1.25)
+lines(Fh.100.loc.f.o, col="gray14", lwd=1.25)
+lines(Fh.250.loc.f.o, col="purple", lwd=1.25)
+lines(Fh.500.loc.f.o, col="deepskyblue", lwd=1.25)
+abline(v=mean.150,lty=2) #line to show the mean Fh for the real pheasant data
+#abline(v=median.150,lty=3) #line to show the mean Fh for the real pheasant data
+colours = c("firebrick2", "blue1", "green", "orange", "gray14", "purple", "deepskyblue")
+#legend("topleft", legend=c("Fh.5","Fh.10", "Fh.25","Fh.50","Fh.100","Fh.250","Fh.500"), col = colours, cex=0.8, fill= colours, bty="n")
+par(mfrow=c(1,1))
+
+
+#Plot Fh boxplot for 50 gen vs 150gen##################################################################################################################
+
+par(mfrow=c(1,2))
+global.list = list(Fh.means.5, Fh.means.10,Fh.means.25,Fh.means.50,Fh.means.100,Fh.means.250,Fh.means.500)
+boxplot(global.list, ylim= c(0.3, 1), xaxt = "n", xlab='Founder size', ylab="Fh", col= "ghostwhite")
+# #ran 1000, and from this x times there was no variance/diversity
+axis(1, at=1:7, labels=c("5","10","25","50","100", "250", "500"))
+#legend("bottomright", legend = "Mountain Pheasant", col = "blue", bty= "n", fill = "blue")
+# #put everything in a table
+# #use *cbind* to plot multiple boxes in th esame plot (binds per column)
+
+global.list.150 = list(Fh.means.5.o, Fh.means.10.o,Fh.means.25.o,Fh.means.50.o,Fh.means.100.o,Fh.means.250.o,Fh.means.500.o)
+boxplot(global.list.150, ylim= c(0.3, 1), xaxt = "n", xlab='Founder size', ylab="Fh", col= "ghostwhite")
+axis(1, at=1:7, labels=c("5","10","25","50","100", "250", "500"))
+#legend("bottomright", legend = "Mountain Pheasant", col = "blue", bty= "n", fill = "blue")
+# #put everything in a table
+# #use *cbind* to plot multiple boxes in th esame plot (binds per column)
+par(mfrow=c(1,1))
+
+
+#Histograms per founder size for Fh mean and median##################################################################################################################
+
+
+par(mfrow=c(4,2))
+hist(Fh.means.5)
+hist(Fh.means.10)
+hist(Fh.means.25)
+hist(Fh.means.50)
+hist(Fh.means.100)
+hist(Fh.means.250)
+hist(Fh.means.500)
+par(mfrow=c(1,1))
+
+#Plot Fh median histgrams
+
+par(mfrow=c(4,2))
+hist(Fh.median.5)
+hist(Fh.median.10)
+hist(Fh.median.25)
+hist(Fh.median.50)
+hist(Fh.median.100)
+hist(Fh.median.250)
+hist(Fh.median.500)
+par(mfrow=c(1,1))
+
+
+
+#Plot Fh curves with abline and zoomed in##################################################################################################################
+
+par(mfrow=c(1,2))
+plot(NULL, xlab="Fh", ylab="Density", xlim=c(0,1), ylim=c(0, 19))
+lines(Fh.5.loc.f, col="firebrick2", lwd=1.25)
+lines(Fh.10.loc.f, col="blue1", lwd=1.25)
+lines(Fh.25.loc.f, col="green", lwd=1.25)
+lines(Fh.50.loc.f, col="orange", lwd=1.25)
+lines(Fh.100.loc.f, col="gray14", lwd=1.25)
+lines(Fh.250.loc.f, col="purple", lwd=1.25)
+lines(Fh.500.loc.f, col="deepskyblue", lwd=1.25)
+abline(v=mean.Fh.mount.df,lty=2) #line to show the mean Fh for the real pheasant data
+colours = c("firebrick2", "blue1", "green", "orange", "gray14", "purple", "deepskyblue")
+#legend("topleft", legend=c("Fh.5","Fh.10", "Fh.25","Fh.50","Fh.100","Fh.250","Fh.500"), col = colours, cex=0.8, fill= colours, bty="n")
+
+
+plot(NULL, xlab="Fh", ylab="Density", xlim=c(0.8,1), ylim=c(0, 19))
+lines(Fh.5.loc.f, col="firebrick2", lwd=1.25)
+lines(Fh.10.loc.f, col="blue1", lwd=1.25)
+lines(Fh.25.loc.f, col="green", lwd=1.25)
+lines(Fh.50.loc.f, col="orange", lwd=1.25)
+lines(Fh.100.loc.f, col="gray14", lwd=1.25)
+lines(Fh.250.loc.f, col="purple", lwd=1.25)
+lines(Fh.500.loc.f, col="deepskyblue", lwd=1.25)
+#abline(v=mean.Fh.mount,lty=2) #line to show the mean Fh for the real pheasant data
+colours = c("firebrick2", "blue1", "green", "orange", "gray14", "purple", "deepskyblue")
+#legend("topleft", legend=c("Fh.5","Fh.10", "Fh.25","Fh.50","Fh.100","Fh.250","Fh.500"), col = colours, cex=0.8, fill= colours, bty="n")
+par(mfrow=c(1,1))
+
+
+#Plot Fh using the median##################################################################################################################
+
+# median Fh per inividual
+Fh.median.5=colMedians(Fh.5.sim)
+Fh.median.10=colMedians(Fh.10.sim)
+Fh.median.25=colMedians(Fh.25.sim)
+Fh.median.50=colMedians(Fh.50.sim)
+Fh.median.100=colMedians(Fh.100.sim)
+Fh.median.250=colMedians(Fh.250.sim)
+Fh.median.500=colMedians(Fh.500.sim)
+
+hist(Fh.5.sim)
+plot(density(Fh.median.5))
+hist(Fh.median.5)
+
+#Use the locfit function for nicer curves
+Fh.5.loc.mf=locfit(~Fh.median.5, maxk=500, alpha = 0.9) #~x for a density estimation model
+Fh.10.loc.mf=locfit(~Fh.median.10) 
+Fh.25.loc.mf=locfit(~Fh.median.25) 
+Fh.50.loc.mf=locfit(~Fh.median.50) 
+Fh.100.loc.mf=locfit(~Fh.median.100) 
+Fh.250.loc.mf=locfit(~Fh.median.250) 
+Fh.500.loc.mf=locfit(~Fh.median.500) 
+
+#Plot
+plot(Fh.5.loc.mf, xlab="Fh.median", ylab="Density", ylim=c(0,8), xlim=c(-0.2,0.2), col="firebrick2")
+lines(Fh.10.loc,mf, col="blue1")
+lines(Fh.25.loc.mf, col="green")
+lines(Fh.50.loc.mf, col="orange")
+lines(Fh.100.loc.mf, col="gray14")
+lines(Fh.250.loc.mf, col="purple")
+lines(Fh.500.loc.mf, col="deepskyblue")
+abline(v=median.Fh.mount,lty=2) #line to show the mean Fh for the real pheasant data
+
+colours = c("firebrick2", "blue1", "green", "orange", "gray14", "purple", "deepskyblue")
+legend("topleft", legend=c("Fh.5","Fh.10", "Fh.25","Fh.50","Fh.100","Fh.250","Fh.500"), col = colours, cex=0.8, fill= colours, bty="n")
+
+
+
+#Plot Fh using the median##################################################################################################################
+
+# median Fh per inividual
+Fis.median.5=colMedians(Fis.5.sim)
+Fis.median.10=colMedians(Fis.10.sim)
+Fis.median.25=colMedians(Fis.25.sim)
+Fis.median.50=colMedians(Fis.50.sim)
+Fis.median.100=colMedians(Fis.100.sim)
+Fis.median.250=colMedians(Fis.250.sim)
+Fis.median.500=colMedians(Fis.500.sim)
+
+#Use the locfit function for nicer curves
+Fis.5.loc.mf=locfit(~Fis.median.5) #~x for a density estimation model
+Fis.10.loc.mf=locfit(~Fis.median.10) 
+Fis.25.loc.mf=locfit(~Fis.median.25) 
+Fis.50.loc.mf=locfit(~Fis.median.50) 
+Fis.100.loc.mf=locfit(~Fis.median.100) 
+Fis.250.loc.mf=locfit(~Fis.median.250) 
+Fis.500.loc.mf=locfit(~Fis.median.500) 
+
+#Plot
+plot(Fis.5.loc.mf, xlab="Fis.median", ylab="Density", ylim=c(0,6), xlim=c(-0.7,0.7), col="firebrick2")
+lines(Fis.10.loc,mf, col="blue1")
+lines(Fis.25.loc.mf, col="green")
+lines(Fis.50.loc.mf, col="orange")
+lines(Fis.100.loc.mf, col="gray14")
+lines(Fis.250.loc.mf, col="purple")
+lines(Fis.500.loc.mf, col="deepskyblue")
+abline(v=median.Fh.mount,lty=2) #line to show the mean Fh for the real pheasant data
+
+colours = c("firebrick2", "blue1", "green", "orange", "gray14", "purple", "deepskyblue")
+legend("topright", legend=c("Fh.5","Fh.10", "Fh.25","Fh.50","Fh.100","Fh.250","Fh.500"), col = colours, cex=0.8, fill= colours, bty="n")
+
+
+
+
+
+#ANOVA - Fh 50 gen##################################################################################################################
+
+yfh=c(Fh.means.5, Fh.means.10, Fh.means.25, Fh.means.50, Fh.means.100, Fh.means.250, Fh.means.500)
+#repeat 5 1000 times (bc we know there's 1000 values with founder neck size 5)
+xfh.factor =as.factor((c(rep(5,1000), rep(10,1000),rep(25,1000), rep(50,1000), rep(100,1000), rep(250,1000), rep(500,1000))))
+aov.data.Fh.f <- data.frame(yfh, xfh.factor) #make dataframe where x is a factor and y is numeric
+str(aov.data.Fh.f) #look at dataframe
+
+aov.out.Fh.f = aov(yfh ~ xfh.factor, data=aov.data.Fh.f)
+summary(aov.out.Fh.f)
+summary.lm(aov.out.Fh.f)#non sig
+TukeyHSD(aov.out.Fh.f)#non sig
+
+
+# #Testing the assumptions
+# 
+# bartlett.test(y2 ~ x2.factor, data=aov.data.Fh) #Homogeneity of variance
+# #Significant result, therefore variances cannot be assumed to be equal?
+# 
+# #Check the normality assumption
+# plot(aov.out.Fh, 2) #Model checking plots
+# #As all the points fall approximately along this reference line, we can assume normality.
+# 
+# #Check the homogeneity of variance assumption
+# leveneTest(y2 ~ x2.factor, data = aov.data.Fh) #p-value is not less than the significance level of 0.05. This means that there is no evidence to suggest that the variance across groups is statistically significantly different. Therefore, we can assume the homogeneity of variances in the different treatment groups.
+# plot(aov.out.Fh, 1)
+# #Points 24, 57, 62 are detected as outliers, which can severely affect normality and homogeneity of variance. It can be useful to remove outliers to meet the test assumptions.
+# 
+# #normality test
+# shapiro.test(resid(aov.out.Fh))
+# #non significant
+
+
+#Non-parametric alternative to ANOVA:
+kruskal.test(yfh ~ xfh.factor, data=aov.data.Fh.f)
+dunn.50=dunnTest(yfh ~ xfh.factor)
+dunn.50.table= as.matrix(dunn.50[["res"]], file = "Dunn.test.50gen.cvs")
+
+
+# #Transform the data using log
+# logyfh <- log(1+yfh)
+# #repeat 5 1000 times (bc we know there's 1000 values with founder neck size 5)
+# xfh.factor =as.factor((c(rep(5,1000), rep(10,1000),rep(25,1000), rep(50,1000), rep(100,1000), rep(250,1000), rep(500,1000))))
+# aov.data.Fh.log.f <- data.frame(logyfh, xfh.factor) #make dataframe where x is a factor and y is numeric
+# str(aov.data.Fh.log.f) #look at dataframe
+# 
+# aov.out.Fh.log.f = aov(logyfh ~ xfh.factor, data=aov.data.Fh.log.f)
+# summary(aov.out.Fh.log.f)
+# summary.lm(aov.out.Fh.log.f)#non sig
+# TukeyHSD(aov.out.Fh.log.f)#non sig
+# 
+# 
+# kruskal.test(logyfh ~ xfh.factor, data=aov.data.Fh.log.f)
+
+
+#ANOVA - Fh 150 gen##################################################################################################################
+
+yfh.o=c(Fh.means.5.o, Fh.means.10.o, Fh.means.25.o, Fh.means.50.o, Fh.means.100.o, Fh.means.250.o, Fh.means.500.o)
+#repeat 5 1000 times (bc we know there's 1000 values with founder neck size 5)
+xfh.factor.o =as.factor((c(rep(5,1000), rep(10,1000),rep(25,1000), rep(50,1000), rep(100,1000), rep(250,1000), rep(500,1000))))
+aov.data.Fh.f.o <- data.frame(yfh.o, xfh.factor.o) #make dataframe where x is a factor and y is numeric
+str(aov.data.Fh.f.o) #look at dataframe
+
+
+aov.out.Fh.f.o = aov(yfh.o ~ xfh.factor.o, data=aov.data.Fh.f.o)
+summary(aov.out.Fh.f.o)
+summary.lm(aov.out.Fh.f.o)#non sig
+TukeyHSD(aov.out.Fh.f.o)#non sig
+
+
+# #Testing the assumptions
+# 
+# bartlett.test(y2 ~ x2.factor, data=aov.data.Fh) #Homogeneity of variance
+# #Significant result, therefore variances cannot be assumed to be equal?
+# 
+# #Check the normality assumption
+# plot(aov.out.Fh, 2) #Model checking plots
+# #As all the points fall approximately along this reference line, we can assume normality.
+# 
+# #Check the homogeneity of variance assumption
+# leveneTest(y2 ~ x2.factor, data = aov.data.Fh) #p-value is not less than the significance level of 0.05. This means that there is no evidence to suggest that the variance across groups is statistically significantly different. Therefore, we can assume the homogeneity of variances in the different treatment groups.
+# plot(aov.out.Fh, 1)
+# #Points 24, 57, 62 are detected as outliers, which can severely affect normality and homogeneity of variance. It can be useful to remove outliers to meet the test assumptions.
+# 
+# #normality test
+# shapiro.test(resid(aov.out.Fh))
+# #non significant
+
+
+#Non-parametric alternative to ANOVA:
+kruskal.test(yfh.o ~ xfh.factor.o, data=aov.data.Fh.f.o)
+dunnTest(yfh.o ~ xfh.factor.o)
+
+# #Transform the data using log
+# logyfh <- log(1+yfh)
+# xfh=c(1,2,3,4,5,6,7)
+# xfh.factor =as.factor(xfh)
+# aov.data.Fh.log.f <- data.frame(logyfh, xfh.factor) #make dataframe where x is a factor and y is numeric
+# str(aov.data.Fh.log.f) #look at dataframe
+# 
+# aov.out.Fh.log.f = aov(logyfh ~ xfh.factor, data=aov.data.Fh.log.f)
+# summary(aov.out.Fh.log.f)
+# summary.lm(aov.out.Fh.log.f)#non sig
+# TukeyHSD(aov.out.Fh.log.f)#non sig
+
+
+kruskal.test(logyfh ~ xfh.factor, data=aov.data.Fh.log.f)
+
+#significante
+
+
+#T test - Fh 50 vs Fh 150 gen for different founder size ##################################################################################################################
+
+
+yfh.t.5=c(Fh.means.5, Fh.means.5.o)
+xfh.factor.t.5 =as.factor(c(rep(50,1000), rep(150,1000)))
+t.data.Fh.f.5 <- data.frame(yfh.t.5, xfh.factor.t.5) #make dataframe where x is a factor and y is numeric
+t.test(yfh.t.5~xfh.factor.t.5, data=t.data.Fh.f.5)
+#p-value < 2.2e-16
+
+leveneTest(yfh.t ~ xfh.factor.t, data = t.data.Fh.f) #p-value is not less than the significance level of 0.05. This means that there is no evidence to suggest that the variance across groups is statistically significantly different. Therefore, we can assume the homogeneity of variances in the different treatment groups.
+
+#nonparametric
+wilcox.test(yfh.t.5~xfh.factor.t.5)
+#W = 635420, p-value < 2.2e-16
+
+
+
+
+yfh.t.10=c(Fh.means.10, Fh.means.10.o)
+xfh.factor.t.10 =as.factor(c(rep(50,1000), rep(100,1000)))
+t.data.Fh.f.10 <- data.frame(yfh.t.10, xfh.factor.t.10) #make dataframe where x is a factor and y is numeric
+wilcox.test(yfh.t.10~xfh.factor.t.10)
+#W = 631570, p-value < 2.2e-16
+
+
+
+
+yfh.t.25=c(Fh.means.25, Fh.means.25.o)
+xfh.factor.t.25 =as.factor(c(rep(50,1000), rep(150,1000)))
+t.data.Fh.f.25 <- data.frame(yfh.t.25, xfh.factor.t.25) #make dataframe where x is a factor and y is numeric
+wilcox.test(yfh.t.25~xfh.factor.t.25)
+#W = 644860, p-value < 2.2e-16
+
+
+
+
+yfh.t.50=c(Fh.means.50, Fh.means.50.o)
+xfh.factor.t.50 =as.factor(c(rep(50,1000), rep(150,1000)))
+t.data.Fh.f.50 <- data.frame(yfh.t.50, xfh.factor.t.50) #make dataframe where x is a factor and y is numeric
+wilcox.test(yfh.t.50~xfh.factor.t.50)
+#W = 665270, p-value < 2.2e-16
+
+
+
+yfh.t.100=c(Fh.means.100, Fh.means.100.o)
+xfh.factor.t.100 =as.factor(c(rep(50,1000), rep(150,1000)))
+t.data.Fh.f.100 <- data.frame(yfh.t.100, xfh.factor.t.100) #make dataframe where x is a factor and y is numeric
+wilcox.test(yfh.t.100~xfh.factor.t.100)
+#W = 673670, p-value < 2.2e-16
+
+
+
+yfh.t.250=c(Fh.means.5, Fh.means.5.o)
+xfh.factor.t.250 =as.factor(c(rep(50,1000), rep(150,1000)))
+t.data.Fh.f.250 <- data.frame(yfh.t.250, xfh.factor.t.250) #make dataframe where x is a factor and y is numeric
+wilcox.test(yfh.t.250~xfh.factor.t.250)
+#W = 635420, p-value < 2.2e-16
+
+
+
+yfh.t.500=c(Fh.means.5, Fh.means.5.o)
+xfh.factor.t.500 =as.factor(c(rep(50,1000), rep(100,1000)))
+t.data.Fh.f.500 <- data.frame(yfh.t.500, xfh.factor.t.500) #make dataframe where x is a factor and y is numeric
+wilcox.test(yfh.t.500~xfh.factor.t.500)
+#W = 635420, p-value < 2.2e-16
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
